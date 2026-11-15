@@ -5,7 +5,7 @@ edition = "2021"
 rust-version = "1.85"
 description = "Game Save companion app: keeps game saves in sync with a self hosted server"
 license = "GPL-3.0-or-later"
-repository = "https://github.com/gamesave/gamesave"
+repository = "https://github.com/regalf/game-save"
 readme = "../README.md"
 
 [lib]
