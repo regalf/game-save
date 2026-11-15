@@ -3,7 +3,6 @@ package main
 
 import (
 	"context"
-	"encoding/pem"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -156,11 +155,13 @@ func cmdServe(args []string) error {
 
 	certPath := filepath.Join(cfg.CertsDir(), "server.crt")
 	keyPath := filepath.Join(cfg.CertsDir(), "server.key")
+	caPath := filepath.Join(cfg.CertsDir(), "ca.crt")
+	caKeyPath := filepath.Join(cfg.CertsDir(), "ca.key")
 
 	var tlsConfig *tlsSettings
 	switch cfg.Server.TLS.Mode {
 	case "selfsigned":
-		tlsConfig, err = ensureSelfSigned(cfg, certPath, keyPath)
+		tlsConfig, err = ensureCertificates(cfg, certPath, keyPath, caPath, caKeyPath)
 		if err != nil {
 			return err
 		}
@@ -173,8 +174,8 @@ func cmdServe(args []string) error {
 	}
 
 	apiServer := api.New(cfg, database, blobs, log)
-	if tlsConfig != nil && len(tlsConfig.certPEM) > 0 {
-		apiServer = apiServer.WithCertificate(tlsConfig.certPEM, tlsConfig.fingerprint)
+	if tlsConfig != nil && len(tlsConfig.anchorPEM) > 0 {
+		apiServer = apiServer.WithCertificate(tlsConfig.anchorPEM, tlsConfig.anchorFP, tlsConfig.leafFP)
 	}
 	handler := apiServer.Handler()
 	srv := &http.Server{
@@ -214,52 +215,106 @@ func cmdServe(args []string) error {
 	}
 }
 
-// tlsSettings holds the certificate paths used by the listener.
+// tlsSettings holds the certificate paths used by the listener and the trust
+// anchor published to the clients.
 type tlsSettings struct {
 	certFile    string
 	keyFile     string
-	certPEM     []byte
-	fingerprint string
+	certPEM     []byte // the certificate the server presents
+	fingerprint string // fingerprint of the trust anchor, the one to pin
+	anchorPEM   []byte // the trust anchor itself
+	anchorFP    string
+	leafFP      string
 }
 
-// ensureSelfSigned loads the existing certificate or generates a new one,
-// then writes the fingerprint file so clients can pin it.
-func ensureSelfSigned(cfg config.Config, certPath, keyPath string) (*tlsSettings, error) {
-	fingerprintPath := cfg.Server.TLS.FingerprintFile
-	if fingerprintPath != "" && !filepath.IsAbs(fingerprintPath) {
-		fingerprintPath = filepath.Join(cfg.Server.DataDir, fingerprintPath)
-	}
-
-	if _, err := os.Stat(certPath); err == nil {
-		if _, err := os.Stat(keyPath); err == nil {
-			return loadSettings(certPath, keyPath)
-		}
-	}
-
+// ensureCertificates loads the TLS material, generating what is missing.
+//
+// The server runs a local certificate authority: the authority signs the
+// certificate the server presents, and clients pin the authority by
+// fingerprint. The client therefore gets real certificate validation without
+// any public certificate authority.
+func ensureCertificates(cfg config.Config, certPath, keyPath, caPath, caKeyPath string) (*tlsSettings, error) {
 	commonName := "gamesave.local"
 	if len(cfg.Server.TLS.SANs) > 0 {
 		commonName = cfg.Server.TLS.SANs[0]
 	}
-	cert, err := tlscert.Generate(commonName, cfg.Server.TLS.SANs, cfg.Server.TLS.ValidityDays)
+
+	// The authority: generate it the first time.
+	authority, err := tlscert.LoadAuthority(caPath, caKeyPath)
+	if err != nil {
+		authority, err = tlscert.GenerateAuthority("Game Save CA", cfg.Server.TLS.ValidityDays)
+		if err != nil {
+			return nil, err
+		}
+		if err := authority.Save(caPath, caKeyPath); err != nil {
+			return nil, err
+		}
+		fmt.Printf("\n  Certificate authority created\n")
+		fmt.Printf("    authority   : %s\n", caPath)
+		fmt.Printf("    fingerprint : %s\n\n", tlscert.FingerprintOfPEMOrEmpty(authority.CertPEM))
+	}
+
+	// The certificate the server presents.
+	leaf, err := tlscert.Load(certPath, keyPath)
+	if err != nil {
+		leaf, err = authority.Sign(commonName, cfg.Server.TLS.SANs, cfg.Server.TLS.ValidityDays)
+		if err != nil {
+			return nil, err
+		}
+		if err := leaf.Save(certPath, keyPath); err != nil {
+			return nil, err
+		}
+		fmt.Printf("\n  Server certificate created\n")
+		fmt.Printf("    certificate : %s\n", certPath)
+		fmt.Printf("    fingerprint : %s\n\n", leaf.Fingerprint)
+	}
+
+	anchorFP, err := tlscert.FingerprintOfPEM(authority.CertPEM)
 	if err != nil {
 		return nil, err
 	}
-	if err := cert.Save(certPath, keyPath); err != nil {
-		return nil, err
-	}
-	if err := cert.SaveFingerprint(fingerprintPath); err != nil {
-		return nil, err
-	}
-	fmt.Printf("\n  Self signed certificate created\n")
-	fmt.Printf("    certificate : %s\n", certPath)
-	fmt.Printf("    fingerprint : %s\n", cert.Fingerprint)
-	fmt.Printf("    spki        : %s\n\n", cert.SPKIFingerprint)
-	return &tlsSettings{
+
+	settings := &tlsSettings{
 		certFile:    certPath,
 		keyFile:     keyPath,
-		certPEM:     cert.CertPEM,
-		fingerprint: cert.Fingerprint,
-	}, nil
+		certPEM:     leaf.CertPEM,
+		fingerprint: anchorFP,
+		anchorPEM:   authority.CertPEM,
+		anchorFP:    anchorFP,
+		leafFP:      leaf.Fingerprint,
+	}
+
+	if err := writeFingerprintFile(cfg, settings); err != nil {
+		return nil, err
+	}
+	return settings, nil
+}
+
+// writeFingerprintFile writes the fingerprints a client needs.
+func writeFingerprintFile(cfg config.Config, settings *tlsSettings) error {
+	path := cfg.Server.TLS.FingerprintFile
+	if path == "" {
+		return nil
+	}
+	if !filepath.IsAbs(path) {
+		path = filepath.Join(cfg.Server.DataDir, path)
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return fmt.Errorf("create fingerprint dir: %w", err)
+	}
+	body := fmt.Sprintf(`# Game Save fingerprints
+#
+# Pin this one in the client: it identifies the certificate authority that
+# signed the server certificate.
+authority : %s
+
+# The certificate the server presents.
+server    : %s
+`, settings.anchorFP, settings.leafFP)
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		return fmt.Errorf("write fingerprint: %w", err)
+	}
+	return nil
 }
 
 // loadSettings reads an existing certificate and computes its fingerprint.
@@ -268,7 +323,7 @@ func loadSettings(certPath, keyPath string) (*tlsSettings, error) {
 	if err != nil {
 		return nil, err
 	}
-	der, err := pemDecodeFirst(cert.CertPEM, "CERTIFICATE")
+	fingerprint, err := tlscert.FingerprintOfPEM(cert.CertPEM)
 	if err != nil {
 		return nil, err
 	}
@@ -276,20 +331,11 @@ func loadSettings(certPath, keyPath string) (*tlsSettings, error) {
 		certFile:    certPath,
 		keyFile:     keyPath,
 		certPEM:     cert.CertPEM,
-		fingerprint: tlscert.Fingerprint(der),
+		fingerprint: fingerprint,
+		anchorPEM:   cert.CertPEM,
+		anchorFP:    fingerprint,
+		leafFP:      fingerprint,
 	}, nil
-}
-
-// pemDecodeFirst returns the DER payload of the first PEM block of a type.
-func pemDecodeFirst(data []byte, blockType string) ([]byte, error) {
-	block, _ := pem.Decode(data)
-	if block == nil {
-		return nil, fmt.Errorf("no PEM block found")
-	}
-	if block.Type != blockType {
-		return nil, fmt.Errorf("expected a %s block, got %q", blockType, block.Type)
-	}
-	return block.Bytes, nil
 }
 
 // flagSet holds the parsed "--name value" arguments.

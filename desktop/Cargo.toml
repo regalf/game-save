@@ -1,0 +1,55 @@
+[package]
+name = "gamesave"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+description = "Game Save companion app: keeps game saves in sync with a self hosted server"
+license = "GPL-3.0-or-later"
+repository = "https://github.com/gamesave/gamesave"
+readme = "../README.md"
+
+[lib]
+name = "gamesave"
+path = "src/lib.rs"
+
+[[bin]]
+name = "gamesave"
+path = "src/main.rs"
+
+[dependencies]
+eframe = "0.37"
+egui = "0.37"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "1"
+reqwest = { version = "0.13", default-features = false, features = [
+    "rustls",
+    "webpki-roots",
+    "json",
+    "charset",
+    "http2",
+    "query",
+] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time"] }
+sha2 = "0.11"
+hex = "0.4"
+base64 = "0.22"
+walkdir = "2"
+globset = "0.4"
+dirs = "7"
+anyhow = "1"
+thiserror = "2"
+log = "0.4"
+env_logger = "0.11"
+rfd = "0.18"
+tray-icon = "0.26"
+
+[dev-dependencies]
+tempfile = "3"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

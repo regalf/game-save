@@ -26,6 +26,9 @@ func (s *Server) handleManifest(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "internal_error", "could not list files")
 		return
 	}
+	if files == nil {
+		files = []db.File{}
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"game_id": g.ID,
 		"version": g.Version,
@@ -46,6 +49,9 @@ func (s *Server) handleListFiles(w http.ResponseWriter, r *http.Request) {
 		s.log.Error("list files", "error", err)
 		writeError(w, http.StatusInternalServerError, "internal_error", "could not list files")
 		return
+	}
+	if files == nil {
+		files = []db.File{}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"game_id": g.ID, "files": files})
 }

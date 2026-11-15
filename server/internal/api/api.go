@@ -24,18 +24,22 @@ type Server struct {
 	blobs *blobstore.Store
 	log   *slog.Logger
 
-	// certPEM is the PEM encoded certificate the server presents. It is
-	// published so clients can pin it instead of trusting a certificate
-	// authority.
-	certPEM []byte
-	// fingerprint is the SHA-256 of the DER certificate, colon separated.
-	fingerprint string
+	// anchorPEM is the trust anchor published to the clients: the certificate
+	// authority that signed the server certificate.
+	anchorPEM []byte
+	// anchorFingerprint is the SHA-256 of the trust anchor, colon separated.
+	// This is the value a client pins.
+	anchorFingerprint string
+	// leafFingerprint is the SHA-256 of the certificate the server presents.
+	leafFingerprint string
 }
 
-// WithCertificate publishes the server certificate to the API.
-func (s *Server) WithCertificate(certPEM []byte, fingerprint string) *Server {
-	s.certPEM = certPEM
-	s.fingerprint = fingerprint
+// WithCertificate publishes the trust anchor and the server certificate
+// fingerprints to the API.
+func (s *Server) WithCertificate(anchorPEM []byte, anchorFingerprint, leafFingerprint string) *Server {
+	s.anchorPEM = anchorPEM
+	s.anchorFingerprint = anchorFingerprint
+	s.leafFingerprint = leafFingerprint
 	return s
 }
 

@@ -84,8 +84,11 @@ go build -o gamesave ./cmd/gamesave
 ./gamesave serve --config config.yaml
 ```
 
-On first start the server generates a self signed certificate and prints its
-fingerprint. Copy that fingerprint, the client needs it.
+On first start the server generates a local certificate authority and a server
+certificate signed by it, and prints the fingerprint of the authority. Copy
+that fingerprint, the client needs it: the client trusts nothing else, so a
+server whose authority changed simply stops working instead of being silently
+accepted.
 
 With Docker:
 
@@ -101,15 +104,20 @@ overridden with a `GAMESAVE_*` environment variable.
 
 ## Quick start: the companion app
 
-The companion talks to the server over HTTPS and pins the server certificate.
+The companion talks to the server over HTTPS and pins the server authority.
 On first run it asks for:
 
 - the server URL, e.g. `https://192.168.1.10:8443`
-- the certificate fingerprint printed by the server
+- the authority fingerprint printed by the server
 - an API key
 
 Then add a game: give it the executable and the save folder. Everything else
 happens on its own.
+
+The URL must be covered by the subject alternative names of the server
+certificate. The server is told which ones to use with `server.tls.san` in the
+configuration file; add the address you connect to, for example the IP of the
+machine or its hostname.
 
 ---
 

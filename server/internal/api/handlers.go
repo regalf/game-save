@@ -20,18 +20,19 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// handleCert publishes the certificate the server presents.
+// handleCert publishes the trust anchor of the server.
 //
 // A client fetches it once, shows the fingerprint to the user and pins it:
-// from then on only that exact certificate is trusted.
+// from then on only certificates signed by that authority are trusted.
 func (s *Server) handleCert(w http.ResponseWriter, r *http.Request) {
-	if len(s.certPEM) == 0 {
+	if len(s.anchorPEM) == 0 {
 		writeError(w, http.StatusNotFound, "not_found", "the server does not expose a certificate")
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"certificate": string(s.certPEM),
-		"fingerprint": s.fingerprint,
+		"certificate":       string(s.anchorPEM),
+		"fingerprint":       s.anchorFingerprint,
+		"server_fingerprint": s.leafFingerprint,
 	})
 }
 
