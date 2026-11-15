@@ -68,7 +68,12 @@ pub struct GameSaveApp {
 
 impl GameSaveApp {
     /// Build the application from what is on disk.
-    pub fn new(paths: Paths, cfg: Config, library: Library) -> Self {
+    pub fn new(ctx: &egui::Context, paths: Paths, cfg: Config, library: Library) -> Self {
+        // The fonts and the colours go in before anything is drawn.
+        crate::theme::install_fonts(ctx);
+        let dark = cfg.theme.trim().eq_ignore_ascii_case("dark");
+        crate::theme::apply(ctx, dark);
+
         let worker = Worker::start();
         let mut app = Self {
             paths,
@@ -390,6 +395,29 @@ impl GameSaveApp {
         );
         ui.checkbox(&mut self.cfg.autostart, "Start with the session");
         ui.label(session::support_label());
+
+        ui.add_space(8.0);
+        ui.horizontal(|ui| {
+            let mut dark = self.cfg.theme.trim().eq_ignore_ascii_case("dark");
+            if ui
+                .selectable_label(dark, "Dark")
+                .on_hover_text("The dark theme")
+                .clicked()
+            {
+                dark = true;
+            }
+            if ui
+                .selectable_label(!dark, "Light")
+                .on_hover_text("The light theme")
+                .clicked()
+            {
+                dark = false;
+            }
+            if dark != self.cfg.theme.trim().eq_ignore_ascii_case("dark") {
+                self.cfg.theme = if dark { "dark" } else { "light" }.to_string();
+                crate::theme::apply(ui.ctx(), dark);
+            }
+        });
 
         ui.add_space(8.0);
         ui.horizontal(|ui| {

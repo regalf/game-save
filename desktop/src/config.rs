@@ -28,6 +28,8 @@ pub struct Config {
     pub delete_missing: bool,
     /// Start the application together with the session.
     pub autostart: bool,
+    /// The theme of the interface: "dark" or "light".
+    pub theme: String,
 }
 
 impl Default for Config {
@@ -42,6 +44,7 @@ impl Default for Config {
             max_file_size: 1 << 30,
             delete_missing: false,
             autostart: false,
+            theme: "dark".to_string(),
         }
     }
 }

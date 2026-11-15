@@ -19,5 +19,6 @@ pub mod config;
 pub mod scanner;
 pub mod session;
 pub mod sync;
+pub mod theme;
 pub mod tray;
 pub mod worker;

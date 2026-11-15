@@ -49,7 +49,14 @@ fn main() {
     let result = eframe::run_native(
         "Game Save",
         options,
-        Box::new(move |_cc| Ok(Box::new(GameSaveApp::new(paths, cfg, library)))),
+        Box::new(move |cc| {
+            Ok(Box::new(GameSaveApp::new(
+                &cc.egui_ctx,
+                paths,
+                cfg,
+                library,
+            )))
+        }),
     );
     if let Err(err) = result {
         eprintln!("Game Save stopped: {err}");
