@@ -4,12 +4,24 @@
 //! sync with a self hosted Game Save server. The save folder of a game is
 //! only ever read, never written.
 
+// On Windows a program built for the console subsystem opens a black window
+// next to the interface. The release build is a graphical program, the debug
+// build keeps the console because the logs are useful there.
+//
+// The attribute is only applied on Windows, so the other platforms do not
+// complain about an attribute they cannot use.
+#![cfg_attr(
+    all(target_os = "windows", not(debug_assertions)),
+    windows_subsystem = "windows"
+)]
+
 use eframe::egui::ViewportBuilder;
 use gamesave::{app::GameSaveApp, config};
 
-fn main() {
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
+/// The log file is truncated when it grows past this size.
+const MAX_LOG_BYTES: u64 = 1024 * 1024;
 
+fn main() {
     let paths = match config::Paths::discover() {
         Ok(paths) => paths,
         Err(err) => {
@@ -21,6 +33,8 @@ fn main() {
         eprintln!("Game Save cannot create its directories: {err}");
         std::process::exit(1);
     }
+
+    init_logging(&paths);
 
     let cfg = config::Config::load(&paths.config_file()).unwrap_or_default();
     let library = config::Library::load(&paths.library_file()).unwrap_or_default();
@@ -41,4 +55,36 @@ fn main() {
         eprintln!("Game Save stopped: {err}");
         std::process::exit(1);
     }
+}
+
+/// Set the logging up.
+///
+/// The interface has a log panel of its own for the everyday use. This is for
+/// the rest: a release build on Windows has no console, so the log goes to a
+/// file and a panic before the window opens still leaves a trace.
+fn init_logging(paths: &config::Paths) {
+    let mut builder =
+        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"));
+
+    if cfg!(all(target_os = "windows", not(debug_assertions))) {
+        let path = paths.data_dir.join("gamesave.log");
+        if let Some(parent) = path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        // Start from scratch when the file became too big.
+        if let Ok(meta) = std::fs::metadata(&path) {
+            if meta.len() > MAX_LOG_BYTES {
+                let _ = std::fs::remove_file(&path);
+            }
+        }
+        if let Ok(file) = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&path)
+        {
+            builder.target(env_logger::Target::Pipe(Box::new(file)));
+        }
+    }
+
+    let _ = builder.try_init();
 }
