@@ -1,5 +1,7 @@
 # Game Save
 
+[![CI](https://github.com/regalf/game-save/actions/workflows/ci.yml/badge.svg)](https://github.com/regalf/game-save/actions/workflows/ci.yml)
+
 Self-hosted cloud save for the games that have none.
 
 Game Save is a small Go server that stores your game saves, and a companion
