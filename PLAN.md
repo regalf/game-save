@@ -78,6 +78,8 @@ Linux                                  Windows
     └── .conflicts/slot1.dat.<ts>       versions that lost a conflict
 ```
 
+`GAMESAVE_HOME` overrides both directories, for a portable installation.
+
 The game's own save folder is **never** written to.
 
 ---

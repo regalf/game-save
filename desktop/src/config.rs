@@ -53,8 +53,7 @@ impl Config {
         if !path.exists() {
             return Ok(Self::default());
         }
-        let raw =
-            fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
+        let raw = read_text(path)?;
         let cfg: Config =
             toml::from_str(&raw).with_context(|| format!("parsing {}", path.display()))?;
         Ok(cfg)
@@ -89,7 +88,17 @@ pub struct Paths {
 
 impl Paths {
     /// Discover the standard locations for the current platform.
+    ///
+    /// The `GAMESAVE_HOME` environment variable overrides them, which is
+    /// handy for a portable installation or for a throwaway test.
     pub fn discover() -> Result<Self> {
+        if let Some(home) = std::env::var_os("GAMESAVE_HOME") {
+            let home = PathBuf::from(home);
+            return Ok(Self {
+                config_dir: home.join("config"),
+                data_dir: home.join("data"),
+            });
+        }
         let config_dir = dirs::config_dir()
             .context("no configuration directory available")?
             .join("gamesave");
@@ -129,6 +138,16 @@ impl Paths {
         fs::create_dir_all(self.data_dir.join("mirror"))?;
         Ok(())
     }
+}
+
+/// Read a file as text, dropping a leading UTF-8 byte order mark.
+///
+/// Editors on Windows like to add one, and a parser that does not expect it
+/// refuses the whole file.
+fn read_text(path: &Path) -> Result<String> {
+    let raw = fs::read(path).with_context(|| format!("reading {}", path.display()))?;
+    let raw = raw.strip_prefix(&[0xEF, 0xBB, 0xBF]).unwrap_or(&raw);
+    Ok(String::from_utf8_lossy(raw).to_string())
 }
 
 /// Write a file atomically: write to a temporary file, then rename it.
@@ -218,8 +237,7 @@ impl Library {
         if !path.exists() {
             return Ok(Self::default());
         }
-        let raw =
-            fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
+        let raw = read_text(path)?;
         let lib: Library =
             serde_json::from_str(&raw).with_context(|| format!("parsing {}", path.display()))?;
         Ok(lib)
@@ -300,8 +318,7 @@ impl GameState {
         if !path.exists() {
             return Ok(Self::default());
         }
-        let raw =
-            fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
+        let raw = read_text(path)?;
         let state: GameState =
             serde_json::from_str(&raw).with_context(|| format!("parsing {}", path.display()))?;
         Ok(state)

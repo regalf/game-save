@@ -119,6 +119,12 @@ certificate. The server is told which ones to use with `server.tls.san` in the
 configuration file; add the address you connect to, for example the IP of the
 machine or its hostname.
 
+The client keeps its configuration and its state in the usual places:
+`~/.config/gamesave` and `~/.local/share/gamesave` on Linux,
+`%APPDATA%\gamesave` and `%LOCALAPPDATA%\gamesave` on Windows. The
+`GAMESAVE_HOME` environment variable overrides both, which is handy for a
+portable installation.
+
 ---
 
 ## Repository layout

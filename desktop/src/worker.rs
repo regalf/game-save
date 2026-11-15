@@ -37,6 +37,7 @@ pub enum Cmd {
 }
 
 /// An event produced by the worker.
+#[derive(Debug)]
 pub enum Ev {
     /// A line for the log.
     Log(String),

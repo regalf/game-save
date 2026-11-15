@@ -61,6 +61,7 @@ pub struct GameSaveApp {
     status: String,
     status_ok: bool,
     last_poll: Instant,
+    last_attempt: Instant,
     next_id: u64,
     tray: Option<Tray>,
 }
@@ -84,6 +85,7 @@ impl GameSaveApp {
             status: "not connected".to_string(),
             status_ok: false,
             last_poll: Instant::now(),
+            last_attempt: Instant::now(),
             next_id: 1,
             tray: Tray::new(),
         };
@@ -108,6 +110,7 @@ impl GameSaveApp {
     fn connect(&mut self) {
         self.status = "connecting...".into();
         self.status_ok = false;
+        self.last_attempt = Instant::now();
         let cfg = self.cfg.clone();
         self.worker.send(Cmd::Connect { cfg });
     }
@@ -178,6 +181,11 @@ impl GameSaveApp {
         }
         self.last_poll = Instant::now();
 
+        // When the server could not be reached, try again every half minute.
+        if !self.status_ok && self.last_attempt.elapsed() >= Duration::from_secs(30) {
+            self.connect();
+        }
+
         let mut to_sync: Vec<GameEntry> = Vec::new();
         for entry in &self.library.games {
             let running = session::is_running(&entry.exe);
@@ -214,7 +222,13 @@ impl GameSaveApp {
             } else {
                 egui::Color32::from_rgb(220, 140, 120)
             };
-            ui.colored_label(colour, self.status.clone());
+            let status = self.status.clone();
+            if ui.colored_label(colour, status.clone()).clicked() {
+                self.connect();
+            }
+            if !self.status_ok && ui.small_button("Reconnect").clicked() {
+                self.connect();
+            }
 
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                 if ui.button("Settings").clicked() {
@@ -568,6 +582,11 @@ impl GameSaveApp {
 
 impl eframe::App for GameSaveApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        // egui only draws when something asks it to. The interface has to
+        // keep waking up, or the events coming from the worker would sit
+        // unread until the user happens to click something.
+        ui.ctx().request_repaint_after(Duration::from_millis(250));
+
         self.drain_events();
         self.drain_tray(ui.ctx());
         self.poll_sessions(ui.ctx());
