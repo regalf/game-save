@@ -58,6 +58,7 @@ fn entry(save_dir: &Path, server_game_id: String) -> GameEntry {
         save_dir: save_dir.to_string_lossy().to_string(),
         sync_paths: Vec::new(),
         excludes: Vec::new(),
+        icon: String::new(),
         server_game_id: Some(server_game_id),
         added_at: String::new(),
     }

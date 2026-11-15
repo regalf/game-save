@@ -199,6 +199,8 @@ pub struct GameEntry {
     pub sync_paths: Vec<String>,
     /// Glob patterns that are never synchronised.
     pub excludes: Vec<String>,
+    /// An icon file to use instead of the one of the executable.
+    pub icon: String,
     /// Identifier of the matching namespace on the server.
     pub server_game_id: Option<String>,
     /// When the entry was added.
@@ -391,6 +393,7 @@ mod tests {
             save_dir: "/y".into(),
             sync_paths: vec![],
             excludes: vec![],
+            icon: String::new(),
             server_game_id: None,
             added_at: String::new(),
         };

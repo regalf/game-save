@@ -66,6 +66,9 @@ func (s *Server) handleListGames(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "internal_error", "could not list games")
 		return
 	}
+	if games == nil {
+		games = []db.Game{}
+	}
 	writeJSON(w, http.StatusOK, map[string]any{"games": games})
 }
 

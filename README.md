@@ -62,7 +62,7 @@ That single rule is what makes the app safe to leave running.
 | Component | State |
 |---|---|
 | `server/` — Go server, API, CLI, TLS, Docker | **done** |
-| `desktop/` — Rust companion app (egui) | **in progress** |
+| `desktop/` — Rust companion app (egui) | **done** |
 | E2E encryption | planned, opt-in per user |
 | Chunk level delta upload | planned |
 
@@ -166,12 +166,39 @@ portable installation.
 │       ├── db/             SQLite schema, migrations, queries
 │       └── tlscert/        the local certificate authority
 ├── desktop/           Rust companion app (egui)
+│   ├── assets/fonts/       Fira Code, under the Open Font License
+│   └── src/
+│       ├── api.rs          HTTP client, certificate pinning
+│       ├── app.rs          the interface: the library of games
+│       ├── icons.rs        the icon of the game, from its executable
+│       ├── overlay.rs      the panels that come in the middle of the screen
+│       ├── scanner.rs      the read only walk of the save folder
+│       ├── session.rs      is the game running?
+│       ├── sync.rs         the synchronisation engine
+│       ├── theme.rs        fonts, colours and spacing
+│       ├── widgets.rs      the buttons and the boxes
+│       └── worker.rs       the background worker
 ├── spec/openapi.yaml  the API, described
 ├── docs/
 │   ├── PROTOCOL.md    how the synchronisation works
 │   └── DEPLOY.md      how to run the server
 └── scripts/e2e.ps1    the end to end test, with a throwaway server
 ```
+
+---
+
+## The interface
+
+The library is a grid of cards, one for each game, and the last card of the
+grid is the one that adds a game. Each card carries the icon of the game, the
+time of the last synchronisation, and the three things one can do with a
+game: synchronise it, change it, or remove it.
+
+The panels that add a game and that hold the settings come in the middle of
+the screen with a quick fade, and are closed with the cross in their corner.
+
+The font is Fira Code, under the Open Font License, and it travels with the
+program: the interface looks the same on every machine.
 
 ---
 

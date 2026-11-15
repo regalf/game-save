@@ -43,21 +43,28 @@ pub fn from_executable(exe: &Path, wanted: u32) -> Option<Icon> {
     let extractor = IconExtractor::from_path(exe).ok()?;
     let group = extractor.get_icon(IconSelector::Index(0)).ok()?;
     let bytes = group.to_ico_bytes().ok()?;
+    pick(&oxideav_ico::decode_all(&bytes).ok()?, wanted)
+}
 
-    let frames = oxideav_ico::decode_all(&bytes).ok()?;
+/// Read an icon from an icon file.
+pub fn from_file(path: &Path, wanted: u32) -> Option<Icon> {
+    let bytes = std::fs::read(path).ok()?;
+    pick(&oxideav_ico::decode_all(&bytes).ok()?, wanted)
+}
+
+/// Pick the size that is the closest to the one wanted.
+fn pick(frames: &[oxideav_ico::Frame], wanted: u32) -> Option<Icon> {
     if frames.is_empty() {
         return None;
     }
 
     // The closest size wins, the smallest one at least as big as the wanted
     // size is preferred over a bigger one.
-    let best = frames
-        .iter()
-        .min_by_key(|frame| {
-            let width = frame.image.width;
-            let too_small = width < wanted;
-            (too_small, width.abs_diff(wanted))
-        })?;
+    let best = frames.iter().min_by_key(|frame| {
+        let width = frame.image.width;
+        let too_small = width < wanted;
+        (too_small, width.abs_diff(wanted))
+    })?;
 
     let rgba = best.image.to_rgba8();
     if rgba.len() != (best.image.width * best.image.height * 4) as usize {
@@ -152,12 +159,7 @@ mod tests {
         assert!(icon.width >= 16, "width = {}", icon.width);
         assert!(icon.height >= 16, "height = {}", icon.height);
         assert_eq!(icon.rgba.len(), (icon.width * icon.height * 4) as usize);
-        println!(
-            "{} -> {}x{}",
-            exe.display(),
-            icon.width,
-            icon.height
-        );
+        println!("{} -> {}x{}", exe.display(), icon.width, icon.height);
     }
 
     #[test]

@@ -271,6 +271,7 @@ mod tests {
             save_dir: save_dir.to_string_lossy().to_string(),
             sync_paths: vec![],
             excludes: vec![],
+            icon: String::new(),
             server_game_id: None,
             added_at: String::new(),
         }

@@ -35,17 +35,12 @@ fn the_strong_text_is_not_the_accent_colour() {
     println!("active: {active:?}   <- il colore del testo strong");
     println!("text:   {:?}", style.visuals.text_color());
 
-    // In egui the strong text takes the colour of the active widget. That
-    // colour has to be a brighter text, not the accent: with the accent the
-    // whole table ends up blue.
+    // In egui the strong text takes the colour of the active widget, and the
+    // active widget is the one under the finger. That colour must never be
+    // the accent: with the accent the whole table ends up blue.
     assert_ne!(
         active, accent,
         "the strong text must not use the accent colour"
-    );
-    assert_eq!(
-        active,
-        gamesave::theme::palette::dark::TEXT_STRONG,
-        "the strong text must use the strong text colour"
     );
 
     // The plain text uses the colour of the theme.

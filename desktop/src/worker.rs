@@ -34,6 +34,8 @@ pub enum Cmd {
     },
     /// Delete the namespace of a game on the server.
     DeleteGame { cfg: Config, game_id: String },
+    /// Read the icon of the games.
+    Icons { games: Vec<GameEntry>, paths: Paths },
 }
 
 /// An event produced by the worker.
@@ -51,6 +53,13 @@ pub enum Ev {
     Conflicts {
         id: String,
         conflicts: Vec<Conflict>,
+    },
+    /// The icon of a game was read.
+    Icon {
+        id: String,
+        width: u32,
+        height: u32,
+        rgba: Vec<u8>,
     },
 }
 
@@ -203,6 +212,27 @@ async fn handle(cmd: Cmd, events: &Sender<Ev>) {
                 }
                 Err(err) => {
                     let _ = events.send(Ev::Failed(format!("{err}")));
+                }
+            }
+        }
+
+        Cmd::Icons { games, paths } => {
+            for entry in games {
+                // An icon the user pointed at wins over the one of the
+                // executable.
+                let icon = if !entry.icon.trim().is_empty() {
+                    crate::icons::from_file(std::path::Path::new(&entry.icon), 128)
+                } else {
+                    let cache = crate::icons::cache_path(&paths.data_dir, &entry.slug());
+                    crate::icons::load(std::path::Path::new(&entry.exe), &cache, 128)
+                };
+                if let Some(icon) = icon {
+                    let _ = events.send(Ev::Icon {
+                        id: entry.id.clone(),
+                        width: icon.width,
+                        height: icon.height,
+                        rgba: icon.rgba,
+                    });
                 }
             }
         }
