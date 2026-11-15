@@ -1,0 +1,25 @@
+services:
+  gamesave:
+    build:
+      context: .
+      args:
+        VERSION: "0.1.0"
+    image: gamesave:latest
+    container_name: gamesave
+    restart: unless-stopped
+    ports:
+      - "8443:8443"
+    volumes:
+      # The data directory holds the database, the blobs and the certificate.
+      - ./data:/data
+    environment:
+      GAMESAVE_LISTEN: ":8443"
+      GAMESAVE_DATA_DIR: "/data"
+      GAMESAVE_TLS_MODE: "selfsigned"
+      # Replace with the addresses this host is reachable at.
+      GAMESAVE_SANS: "localhost,127.0.0.1"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "--no-check-certificate", "https://127.0.0.1:8443/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

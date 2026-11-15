@@ -1,0 +1,210 @@
+# Game Save
+
+Self-hosted cloud save for game saves.
+
+Game Save is a self-hosted alternative to Steam Cloud: a small Go server that
+stores your game saves, and a companion desktop app that watches your games and
+keeps the saves in sync between machines.
+
+It is built for a homelab. One binary, one SQLite file, one blob directory, no
+external service, no account, no telemetry.
+
+---
+
+## The idea
+
+You point the app at a game's executable and at the folder where that game
+stores its saves. The app then:
+
+1. notices when the game is running, and when it stops;
+2. at the end of every session it reads the save folder, computes the SHA-256
+   of each file and compares it with what it saw last time and with what the
+   server holds;
+3. uploads what is new or changed, downloads what is newer on the server, and
+   asks you what to do when both sides changed.
+
+**Your save files are never written to.** The companion only reads them. The
+only thing it ever writes is its own state, in its own directory, and copies of
+the cloud content in a mirror folder. Restoring a file into the game's save
+folder is possible, but only when you explicitly ask for it.
+
+That single rule is what makes the app safe to leave running.
+
+---
+
+## Status
+
+| Component | State |
+|---|---|
+| `server/` — Go server, API, CLI, TLS, Docker | **done** |
+| `desktop/` — Rust companion app (egui) | **in progress** |
+| E2E encryption | planned, opt-in per user |
+| Chunk level delta upload | planned |
+
+---
+
+## Architecture
+
+```
+┌───────────────────────┐        HTTPS, pinned self signed certificate
+│  Desktop companion    │◄──────────────────────────────────────────┐
+│  Rust + egui          │                                           │
+│                       │   ┌─────────────────────────────────────┐  │
+│  ┌──────────────────┐ │   │       Game Save server (Go)        │  │
+│  │ session watcher  │ │   │                                     │  │
+│  │ read only scanner│ │   │  ┌───────────┐  ┌───────────────┐ │  │
+│  │ sync engine      │ │   │  │  REST API │  │  sync engine  │ │  │
+│  │ egui library UI  │ │   │  └─────┬─────┘  └───────┬───────┘ │  │
+│  └──────────────────┘ │   │        │                │         │  │
+└───────────────────────┘   │  ┌─────▼─────┐   ┌──────▼───────┐  │
+                            │  │  SQLite   │   │  blob store  │  │
+                            │  │ (meta)    │   │  (CAS disk)  │  │
+                            │  └───────────┘   └──────────────┘  │
+                            └─────────────────────────────────────┘
+```
+
+The client owns the filesystem, the server owns the bytes. The client never
+downloads a whole archive: it diffs manifests and transfers only what changed.
+
+---
+
+## Quick start: the server
+
+```bash
+cd server
+go build -o gamesave ./cmd/gamesave
+
+# create an account
+./gamesave user add alice
+
+# issue an API key (shown once)
+./gamesave key create --user alice --label laptop
+
+# run it
+./gamesave serve --config config.yaml
+```
+
+On first start the server generates a self signed certificate and prints its
+fingerprint. Copy that fingerprint, the client needs it.
+
+With Docker:
+
+```bash
+cd server
+docker compose up -d
+```
+
+Configuration lives in `server/config.example.yaml`; every value can be
+overridden with a `GAMESAVE_*` environment variable.
+
+---
+
+## Quick start: the companion app
+
+The companion talks to the server over HTTPS and pins the server certificate.
+On first run it asks for:
+
+- the server URL, e.g. `https://192.168.1.10:8443`
+- the certificate fingerprint printed by the server
+- an API key
+
+Then add a game: give it the executable and the save folder. Everything else
+happens on its own.
+
+---
+
+## Repository layout
+
+```
+.
+├── server/            Go server
+│   ├── cmd/gamesave/       CLI entry point
+│   └── internal/
+│       ├── api/            HTTP layer, auth middleware, handlers
+│       ├── auth/           API key issuing and hashing
+│       ├── blobstore/      content addressed store on disk
+│       ├── config/         YAML + environment configuration
+│       ├── db/             SQLite schema, migrations, queries
+│       └── tlscert/        self signed certificate generation
+├── desktop/           Rust companion app (egui)
+├── spec/              OpenAPI description of the protocol
+└── docs/              architecture and protocol notes
+```
+
+---
+
+## Multi user and API keys
+
+The server supports several accounts. Every account has its own games, its own
+files and its own keys, and nothing crosses over between accounts.
+
+```
+gamesave user add alice
+gamesave key create --user alice --label laptop
+gamesave key list --user alice
+gamesave key revoke --user alice --id 3
+```
+
+Keys are stored as a SHA-256 hash. The plaintext is printed once, at creation
+time, and cannot be recovered. Revoking a key takes effect immediately.
+
+---
+
+## How the sync works
+
+Every game is a namespace on the server holding a manifest: the current state
+of each file, with its size, digest and modification time.
+
+At the end of a session the client walks the save folder **read only**:
+
+1. files whose size and modification time are unchanged since the last scan are
+   skipped, their digest is reused. This is what keeps the scan cheap;
+2. the remaining files are hashed;
+3. the result is compared with the previous state and with the server manifest,
+   which gives the three cases:
+   - changed locally, unchanged on the server → **upload**;
+   - unchanged locally, changed on the server → **download** into the mirror;
+   - changed on both sides → **conflict**, you choose;
+4. the local state file is rewritten atomically.
+
+The server refuses a blind overwrite: an upload carries the digest the client
+believes the server holds, and the server answers `409 Conflict` when it does
+not match. Nothing is ever overwritten without you knowing.
+
+---
+
+## Configuration reference
+
+| Variable | Meaning |
+|---|---|
+| `GAMESAVE_LISTEN` | listen address, default `:8443` |
+| `GAMESAVE_DATA_DIR` | directory holding the database, blobs and certificates |
+| `GAMESAVE_TLS_MODE` | `selfsigned`, `files` or `off` |
+| `GAMESAVE_CERT_FILE` / `GAMESAVE_KEY_FILE` | certificate pair when the mode is `files` |
+| `GAMESAVE_SANS` | comma separated subject alternative names |
+| `GAMESAVE_MAX_FILE_SIZE` | largest accepted file, in bytes |
+
+---
+
+## Development
+
+```bash
+cd server && go test ./... && go vet ./...
+cd desktop && cargo check && cargo test
+```
+
+The Go server cross compiles to Linux without a C toolchain, because the SQLite
+driver is pure Go:
+
+```bash
+cd server
+GOOS=linux GOARCH=amd64 go build -o gamesave-linux-amd64 ./cmd/gamesave
+GOOS=linux GOARCH=arm64 go build -o gamesave-linux-arm64 ./cmd/gamesave
+```
+
+---
+
+## License
+
+Game Save is released under the GNU General Public License v3.0. See
+[LICENSE](LICENSE) for the full text.

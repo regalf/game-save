@@ -1,0 +1,43 @@
+# Game Save server configuration.
+#
+# Every value can be overridden with an environment variable:
+#   GAMESAVE_LISTEN, GAMESAVE_DATA_DIR, GAMESAVE_TLS_MODE, GAMESAVE_CERT_FILE,
+#   GAMESAVE_KEY_FILE, GAMESAVE_FINGERPRINT_FILE, GAMESAVE_MAX_FILE_SIZE
+
+server:
+  # Address the HTTPS listener binds to.
+  listen: ":8443"
+
+  # Where the database, the blob store and the certificates live.
+  data_dir: "./data"
+
+  tls:
+    # selfsigned | files | off
+    mode: "selfsigned"
+
+    # Certificate and key used when mode is "files".
+    cert_file: ""
+    key_file: ""
+
+    # Subject alternative names of the generated certificate.
+    # IP addresses and DNS names are both accepted.
+    san:
+      - "localhost"
+      - "127.0.0.1"
+      - "192.168.1.10"
+      - "gamesave.local"
+
+    # Validity of the generated certificate, in days.
+    validity_days: 3650
+
+    # Where the fingerprint is written, relative to data_dir.
+    # Clients pin this value instead of trusting a certificate authority.
+    fingerprint_file: "certs/fingerprint.txt"
+
+auth:
+  # When false the API accepts anonymous requests. Useful only for testing.
+  require_api_key: true
+
+limits:
+  # Largest single file accepted, in bytes (1 GiB).
+  max_file_size: 1073741824

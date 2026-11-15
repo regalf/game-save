@@ -1,0 +1,25 @@
+# Go
+/server/gamesave
+/server/gamesave.exe
+/server/data/
+*.db
+*.db-wal
+*.db-shm
+
+# Rust
+/desktop/target/
+**/*.rs.bk
+
+# Local configuration and secrets
+config.yaml
+config.local.yaml
+*.key
+*.pem
+certs/
+
+# Editors and OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
