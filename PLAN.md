@@ -19,8 +19,7 @@ the protocol and the documentation all use it.
 
 ### Positioning
 
-Game Save is **not** a replacement for Steam Cloud. It fills the gap Steam
-Cloud leaves:
+Game Save fills the gap Steam Cloud leaves:
 
 | Game | What to use |
 |---|---|

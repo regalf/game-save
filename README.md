@@ -7,10 +7,9 @@ desktop app that watches your games and keeps the saves in sync between
 machines. It is built for a homelab: one binary, one SQLite file, one blob
 directory, no external service, no account, no telemetry.
 
-**It is not a replacement for Steam Cloud.** It is for the games Steam Cloud
-does not cover: the indie games, the games from GOG, Epic or itch.io, and
-anything else that keeps its saves in a folder on disk and has no cloud
-service of its own.
+It is for the games that keep their saves in a folder on disk and have no
+cloud service of their own: the indie games, the games from GOG, Epic or
+itch.io, and the Steam games whose developer never added the Steam Cloud SDK.
 
 ---
 
