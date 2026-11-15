@@ -17,6 +17,24 @@ the protocol and the documentation all use it.
 - Honest conflict handling: no silent overwrite, ever.
 - Small operational footprint: one binary, one SQLite file, one blob folder.
 
+### Positioning
+
+Game Save is **not** a replacement for Steam Cloud. It fills the gap Steam
+Cloud leaves:
+
+| Game | What to use |
+|---|---|
+| A game that integrates the Steam Cloud SDK | Steam Cloud. It is already integrated and the developer tested it. |
+| A game from GOG, Epic or itch.io | Game Save. Those stores have no cloud save, the saves are in a folder on disk. |
+| An indie game on Steam without the Steam Cloud SDK | Game Save. Being on Steam does not mean the save is in the cloud. |
+
+Being on Steam is not enough: the Steam Cloud SDK has to be part of the game.
+The companion has to know where the game writes its saves, and that folder is
+where the engine puts it, differently for every engine and every store.
+
+Running Game Save and Steam Cloud on the same game is a good way to confuse
+yourself: two tools, two copies, two opinions.
+
 ### Non goals
 
 - Not a Steam Cloud replacement for games that already integrate the Steam
@@ -24,6 +42,7 @@ the protocol and the documentation all use it.
 - Not a general purpose file sync tool. The unit of work is a game and its
   save folder.
 - Not a hosted service. There is no multi tenant billing, no public signup.
+- Not a launcher, not a store, not a mod manager.
 
 ---
 
@@ -270,6 +289,9 @@ back.
 - Windows support for the session watcher: the process detection is Linux
   specific for now, the Windows implementation is a Win32 process query.
 - Automatic discovery of the save folder: heuristics over the usual locations
-  per engine, always overridable by hand.
+  per engine and per store, always overridable by hand. This is what makes
+  the difference between a game from GOG or Epic and a game that has the
+  Steam Cloud SDK: the first has no cloud service at all and its saves are
+  only in a folder, so finding that folder is the whole job.
 - The client should be able to work without the UI, as a daemon, for a headless
   machine.

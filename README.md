@@ -1,13 +1,30 @@
 # Game Save
 
-Self-hosted cloud save for game saves.
+Self-hosted cloud save for the games that have none.
 
-Game Save is a self-hosted alternative to Steam Cloud: a small Go server that
-stores your game saves, and a companion desktop app that watches your games and
-keeps the saves in sync between machines.
+Game Save is a small Go server that stores your game saves, and a companion
+desktop app that watches your games and keeps the saves in sync between
+machines. It is built for a homelab: one binary, one SQLite file, one blob
+directory, no external service, no account, no telemetry.
 
-It is built for a homelab. One binary, one SQLite file, one blob directory, no
-external service, no account, no telemetry.
+**It is not a replacement for Steam Cloud.** It is for the games Steam Cloud
+does not cover: the indie games, the games from GOG, Epic or itch.io, and
+anything else that keeps its saves in a folder on disk and has no cloud
+service of its own.
+
+---
+
+## When to use it, and when not to
+
+| Game | What to use |
+|---|---|
+| A game that integrates the Steam Cloud SDK | **Steam Cloud.** It is already integrated, it is what the developer tested, and it works with the game's own cloud handling. |
+| A game from GOG, Epic or itch.io | **Game Save.** Those stores have no cloud save at all, the saves live in a folder on disk and they are lost with the machine. |
+| An indie game on Steam that does not use the Steam Cloud SDK | **Game Save.** Being on Steam does not mean the save is in the cloud: the SDK has to be part of the game. |
+| A game that writes somewhere unusual, in a folder you cannot point at | **Game Save**, if you can find the folder. The app needs to know where the saves are. |
+
+In short: Game Save covers the gap Steam Cloud leaves. It does not compete
+with it, and running both on the same game is a good way to confuse yourself.
 
 ---
 
@@ -22,6 +39,13 @@ stores its saves. The app then:
    server holds;
 3. uploads what is new or changed, downloads what is newer on the server, and
    asks you what to do when both sides changed.
+
+The folder the game writes to has to be found by looking where the engines
+put it: `~/.local/share/<publisher>/<game>` for Unity, `~/.config/unity3d` for
+the older Unity builds, `~/Documents/My Games` for the GOG and Epic
+installers, `~/.local/share/Steam/steamapps/common` for the games installed
+with Steam. **Automatic discovery of that folder is planned**, for now you
+point the app at it yourself.
 
 **Your save files are never written to.** The companion only reads them. The
 only thing it ever writes is its own state, in its own directory, and copies of
