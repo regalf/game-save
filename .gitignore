@@ -23,3 +23,7 @@ certs/
 *.swp
 .DS_Store
 Thumbs.db
+
+# Build leftovers
+*~
+*.exe~
