@@ -6,6 +6,7 @@ use std::time::{Duration, Instant};
 
 use egui::{Align, Layout, RichText};
 
+use crate::autostart;
 use crate::config::{now_string, Config, GameEntry, Library, Paths};
 use crate::session;
 use crate::sync::{Conflict, Resolution};
@@ -188,7 +189,10 @@ impl GameSaveApp {
         }
 
         for entry in to_sync {
-            self.push_log(format!("{}: the game stopped, synchronising", entry.name), false);
+            self.push_log(
+                format!("{}: the game stopped, synchronising", entry.name),
+                false,
+            );
             let row = self.rows.entry(entry.id.clone()).or_default();
             row.status = "syncing".into();
             let cfg = self.cfg.clone();
@@ -347,10 +351,7 @@ impl GameSaveApp {
         ui.label("Server");
         ui.add(egui::TextEdit::singleline(&mut self.cfg.server_url).hint_text("https://host:8443"));
         ui.label("Certificate fingerprint");
-        ui.add(
-            egui::TextEdit::singleline(&mut self.cfg.fingerprint)
-                .hint_text("AA:BB:CC:..."),
-        );
+        ui.add(egui::TextEdit::singleline(&mut self.cfg.fingerprint).hint_text("AA:BB:CC:..."));
         ui.label("API key");
         ui.add(egui::TextEdit::singleline(&mut self.cfg.api_key).password(true));
 
@@ -365,11 +366,15 @@ impl GameSaveApp {
         {
             self.cfg.poll_interval_secs = interval as u64;
         }
-        ui.checkbox(&mut self.cfg.auto_sync, "Synchronise when a game session ends");
+        ui.checkbox(
+            &mut self.cfg.auto_sync,
+            "Synchronise when a game session ends",
+        );
         ui.checkbox(
             &mut self.cfg.delete_missing,
             "Remove from the server the files the game deletes",
         );
+        ui.checkbox(&mut self.cfg.autostart, "Start with the session");
         ui.label(session::support_label());
 
         ui.add_space(8.0);
@@ -391,6 +396,22 @@ impl GameSaveApp {
             return;
         }
         self.push_log("settings saved".into(), false);
+
+        // The autostart entry follows the setting.
+        match autostart::set_enabled(self.cfg.autostart) {
+            Ok(()) => {
+                let state = if self.cfg.autostart {
+                    "enabled"
+                } else {
+                    "disabled"
+                };
+                self.push_log(format!("starting with the session: {state}"), false);
+            }
+            Err(err) => {
+                self.push_log(format!("cannot change the autostart entry: {err}"), true);
+            }
+        }
+
         self.connect();
     }
 
@@ -490,7 +511,10 @@ impl GameSaveApp {
                 }
                 let pending = self.pending.clone();
                 for item in pending {
-                    ui.label(RichText::new(format!("{} — {}", item.game_name, item.conflict.path)).strong());
+                    ui.label(
+                        RichText::new(format!("{} — {}", item.game_name, item.conflict.path))
+                            .strong(),
+                    );
                     ui.label(format!(
                         "local: {} bytes, sha {}",
                         item.conflict.local_size,

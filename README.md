@@ -133,10 +133,13 @@ machine or its hostname.
 │       ├── blobstore/      content addressed store on disk
 │       ├── config/         YAML + environment configuration
 │       ├── db/             SQLite schema, migrations, queries
-│       └── tlscert/        self signed certificate generation
+│       └── tlscert/        the local certificate authority
 ├── desktop/           Rust companion app (egui)
-├── spec/              OpenAPI description of the protocol
-└── docs/              architecture and protocol notes
+├── spec/openapi.yaml  the API, described
+├── docs/
+│   ├── PROTOCOL.md    how the synchronisation works
+│   └── DEPLOY.md      how to run the server
+└── scripts/e2e.ps1    the end to end test, with a throwaway server
 ```
 
 ---
@@ -199,6 +202,13 @@ not match. Nothing is ever overwritten without you knowing.
 ```bash
 cd server && go test ./... && go vet ./...
 cd desktop && cargo check && cargo test
+```
+
+The end to end test runs the real client against a real server, both of them
+started on the spot:
+
+```powershell
+./scripts/e2e.ps1
 ```
 
 The Go server cross compiles to Linux without a C toolchain, because the SQLite

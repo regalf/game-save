@@ -95,7 +95,11 @@ pub async fn sync_game(
     let mut outcome = Outcome::default();
 
     // The namespace on the server is created the first time the game syncs.
-    let server_game_id = match state.server_game_id.clone().or_else(|| game.server_game_id.clone()) {
+    let server_game_id = match state
+        .server_game_id
+        .clone()
+        .or_else(|| game.server_game_id.clone())
+    {
         Some(id) => id,
         None => {
             let created = api.create_game(&game.name).await?;
@@ -138,8 +142,12 @@ pub async fn sync_game(
         let remote = cloud.get(&path);
         let known = state.files.get(&path);
 
-        let base_local = known.and_then(|k| k.local.as_ref()).map(|l| l.sha256.clone());
-        let base_cloud = known.and_then(|k| k.cloud.as_ref()).map(|c| c.sha256.clone());
+        let base_local = known
+            .and_then(|k| k.local.as_ref())
+            .map(|l| l.sha256.clone());
+        let base_cloud = known
+            .and_then(|k| k.cloud.as_ref())
+            .map(|c| c.sha256.clone());
 
         let local_changed = match (local, &base_local) {
             (Some(file), Some(base)) => file.sha256.as_str() != base.as_str(),
@@ -194,10 +202,14 @@ pub async fn sync_game(
                     {
                         Ok(()) => {
                             outcome.deleted.push(path.clone());
-                            outcome.warnings.push(format!("{path}: removed from the server"));
+                            outcome
+                                .warnings
+                                .push(format!("{path}: removed from the server"));
                         }
                         Err(err) => {
-                            outcome.warnings.push(format!("{path}: cannot be removed: {err}"));
+                            outcome
+                                .warnings
+                                .push(format!("{path}: cannot be removed: {err}"));
                         }
                     }
                 } else {
@@ -402,7 +414,8 @@ pub fn mirror_path(paths: &Paths, game: &GameEntry, relative: &str) -> PathBuf {
 /// The path where a losing version is archived.
 pub fn conflict_archive_path(paths: &Paths, game: &GameEntry, relative: &str) -> PathBuf {
     let name = relative.replace('/', "_");
-    paths.mirror_dir(&game.slug())
+    paths
+        .mirror_dir(&game.slug())
         .join(".conflicts")
         .join(format!("{name}.{}", crate::config::now_secs()))
 }
@@ -410,8 +423,7 @@ pub fn conflict_archive_path(paths: &Paths, game: &GameEntry, relative: &str) ->
 /// Write a file atomically, creating the parent directories.
 pub fn write_file_atomic(path: &Path, content: &[u8]) -> Result<()> {
     if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)
-            .with_context(|| format!("creating {}", parent.display()))?;
+        fs::create_dir_all(parent).with_context(|| format!("creating {}", parent.display()))?;
     }
     let tmp = path.with_extension("part");
     fs::write(&tmp, content).with_context(|| format!("writing {}", tmp.display()))?;

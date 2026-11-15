@@ -69,9 +69,7 @@ pub fn scan(game: &GameEntry, state: &GameState, max_file_size: u64) -> Result<S
         let entry = match entry {
             Ok(entry) => entry,
             Err(err) => {
-                result
-                    .warnings
-                    .push(format!("cannot read an entry: {err}"));
+                result.warnings.push(format!("cannot read an entry: {err}"));
                 continue;
             }
         };
@@ -339,13 +337,15 @@ mod tests {
         let first = scan(&game, &GameState::default(), 1 << 20).unwrap();
 
         let mut state = GameState::default();
-        let mut file_state = crate::config::FileState::default();
-        file_state.local = Some(crate::config::LocalInfo {
-            sha256: "stale-but-trusted".into(),
-            size: first.files["a.dat"].size,
-            mtime_ns: first.files["a.dat"].mtime_ns,
-            observed_at: String::new(),
-        });
+        let file_state = crate::config::FileState {
+            local: Some(crate::config::LocalInfo {
+                sha256: "stale-but-trusted".into(),
+                size: first.files["a.dat"].size,
+                mtime_ns: first.files["a.dat"].mtime_ns,
+                observed_at: String::new(),
+            }),
+            ..Default::default()
+        };
         state.files.insert("a.dat".into(), file_state);
 
         let second = scan(&game, &state, 1 << 20).unwrap();

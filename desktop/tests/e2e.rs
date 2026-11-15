@@ -9,7 +9,7 @@
 //! ```
 
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use gamesave::api::ApiClient;
@@ -29,16 +29,20 @@ fn setting(name: &str) -> Option<String> {
 
 /// Build a configuration from the environment.
 fn configuration() -> Option<Config> {
-    let mut cfg = Config::default();
-    cfg.server_url = setting("GAMESAVE_E2E_URL")?;
-    cfg.api_key = setting("GAMESAVE_E2E_KEY")?;
-    cfg.fingerprint = setting("GAMESAVE_E2E_FINGERPRINT")?;
-    cfg.device_name = "e2e".to_string();
-    Some(cfg)
+    let server_url = setting("GAMESAVE_E2E_URL")?;
+    let api_key = setting("GAMESAVE_E2E_KEY")?;
+    let fingerprint = setting("GAMESAVE_E2E_FINGERPRINT")?;
+    Some(Config {
+        server_url,
+        api_key,
+        fingerprint,
+        device_name: "e2e".to_string(),
+        ..Config::default()
+    })
 }
 
 /// A temporary save folder with one file in it.
-fn save_folder(root: &PathBuf) -> PathBuf {
+fn save_folder(root: &Path) -> PathBuf {
     let dir = root.join("save");
     fs::create_dir_all(dir.join("saves")).expect("creating the save folder");
     fs::write(dir.join("saves/slot1.dat"), b"first").expect("writing the save");
@@ -46,7 +50,7 @@ fn save_folder(root: &PathBuf) -> PathBuf {
 }
 
 /// A library entry pointing at the temporary save folder.
-fn entry(save_dir: &PathBuf, server_game_id: String) -> GameEntry {
+fn entry(save_dir: &Path, server_game_id: String) -> GameEntry {
     GameEntry {
         id: "e2e".to_string(),
         name: "e2e".to_string(),
@@ -74,10 +78,12 @@ async fn files_are_uploaded_and_updated() {
     let Some(cfg) = configuration() else {
         return;
     };
-    let api = ApiClient::connect(&cfg).await.expect("connecting to the server");
+    let api = ApiClient::connect(&cfg)
+        .await
+        .expect("connecting to the server");
 
     let tmp = tempfile::tempdir().expect("temporary directory");
-    let save_dir = save_folder(&tmp.path().to_path_buf());
+    let save_dir = save_folder(tmp.path());
     let paths = Paths {
         config_dir: tmp.path().join("config"),
         data_dir: tmp.path().join("data"),
@@ -143,10 +149,12 @@ async fn a_change_on_both_sides_is_a_conflict() {
     let Some(cfg) = configuration() else {
         return;
     };
-    let api = ApiClient::connect(&cfg).await.expect("connecting to the server");
+    let api = ApiClient::connect(&cfg)
+        .await
+        .expect("connecting to the server");
 
     let tmp = tempfile::tempdir().expect("temporary directory");
-    let save_dir = save_folder(&tmp.path().to_path_buf());
+    let save_dir = save_folder(tmp.path());
     let paths = Paths {
         config_dir: tmp.path().join("config"),
         data_dir: tmp.path().join("data"),

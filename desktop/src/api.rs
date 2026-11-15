@@ -189,7 +189,11 @@ impl ApiClient {
             .build()
             .context("building the HTTP client")?;
 
-        Ok(Self { http, base, key: cfg.api_key.clone() })
+        Ok(Self {
+            http,
+            base,
+            key: cfg.api_key.clone(),
+        })
     }
 
     /// A short description of the connection, for the interface.
@@ -234,7 +238,10 @@ impl ApiClient {
         struct Wrapper {
             games: Vec<ServerGame>,
         }
-        let resp = self.request(reqwest::Method::GET, "/v1/games").send().await?;
+        let resp = self
+            .request(reqwest::Method::GET, "/v1/games")
+            .send()
+            .await?;
         let wrapper: Wrapper = Self::finish(resp).await?;
         Ok(wrapper.games)
     }
@@ -271,7 +278,10 @@ impl ApiClient {
     /// The complete state of a game namespace.
     pub async fn manifest(&self, game_id: &str) -> Result<Manifest> {
         let resp = self
-            .request(reqwest::Method::GET, &format!("/v1/games/{game_id}/manifest"))
+            .request(
+                reqwest::Method::GET,
+                &format!("/v1/games/{game_id}/manifest"),
+            )
             .send()
             .await?;
         Self::finish(resp).await
@@ -306,10 +316,7 @@ impl ApiClient {
         }
 
         let resp = self
-            .request(
-                reqwest::Method::PUT,
-                &format!("/v1/games/{game_id}/file"),
-            )
+            .request(reqwest::Method::PUT, &format!("/v1/games/{game_id}/file"))
             .query(&query)
             .header(reqwest::header::CONTENT_TYPE, "application/octet-stream")
             .body(content.to_vec())
@@ -350,15 +357,16 @@ impl ApiClient {
         expect_sha256: Option<&str>,
         device: &str,
     ) -> Result<()> {
-        let mut query: Vec<(&str, String)> = vec![
-            ("path", path.to_string()),
-            ("device", device.to_string()),
-        ];
+        let mut query: Vec<(&str, String)> =
+            vec![("path", path.to_string()), ("device", device.to_string())];
         if let Some(expect) = expect_sha256 {
             query.push(("expect_sha256", expect.to_string()));
         }
         let resp = self
-            .request(reqwest::Method::DELETE, &format!("/v1/games/{game_id}/file"))
+            .request(
+                reqwest::Method::DELETE,
+                &format!("/v1/games/{game_id}/file"),
+            )
             .query(&query)
             .send()
             .await?;

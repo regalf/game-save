@@ -1,0 +1,451 @@
+openapi: 3.1.0
+
+info:
+  title: Game Save
+  version: "0.1.0"
+  description: |
+    The API of a Game Save server.
+
+    Every game is a namespace holding a manifest: the current state of each
+    file, with its size, digest and modification time. The client diffs its
+    own view against this manifest to decide what to upload and what to
+    download.
+
+    Authentication uses an API key, sent as a bearer token. Keys belong to an
+    account, and accounts never see each other.
+  license:
+    name: GPL-3.0-or-later
+    url: https://www.gnu.org/licenses/gpl-3.0.html
+
+servers:
+  - url: https://localhost:8443
+    description: A server on the local network
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: server
+    description: Public information about the server
+  - name: account
+    description: The account behind the API key
+  - name: games
+    description: The game namespaces
+  - name: files
+    description: The files inside a namespace
+
+paths:
+  /healthz:
+    get:
+      tags: [server]
+      summary: Liveness probe
+      security: []
+      responses:
+        "200":
+          description: The server is alive
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ok }
+                  version: { type: string }
+                  go: { type: string }
+
+  /v1/cert:
+    get:
+      tags: [server]
+      summary: The trust anchor of the server
+      description: |
+        Returns the certificate authority the server uses to sign its own
+        certificate. A client fetches it once, checks its fingerprint against
+        the value the user pinned, and trusts nothing else.
+      security: []
+      responses:
+        "200":
+          description: The trust anchor
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Certificate"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /v1/me:
+    get:
+      tags: [account]
+      summary: The identity behind the API key
+      responses:
+        "200":
+          description: The account and the key in use
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user: { $ref: "#/components/schemas/User" }
+                  key: { $ref: "#/components/schemas/ApiKey" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /v1/games:
+    get:
+      tags: [games]
+      summary: The games of the account
+      responses:
+        "200":
+          description: The games
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  games:
+                    type: array
+                    items: { $ref: "#/components/schemas/Game" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    post:
+      tags: [games]
+      summary: Register a new game namespace
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                  description: The name shown in the interface
+                slug:
+                  type: string
+                  description: The URL friendly name, derived from the name
+      responses:
+        "201":
+          description: The game was created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  game: { $ref: "#/components/schemas/Game" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /v1/games/{id}:
+    parameters:
+      - $ref: "#/components/parameters/GameId"
+    get:
+      tags: [games]
+      summary: One game
+      responses:
+        "200":
+          description: The game
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  game: { $ref: "#/components/schemas/Game" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [games]
+      summary: Rename a game
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+      responses:
+        "200":
+          description: The renamed game
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  game: { $ref: "#/components/schemas/Game" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [games]
+      summary: Delete a game and its files
+      responses:
+        "204":
+          description: The game was deleted
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /v1/games/{id}/manifest:
+    parameters:
+      - $ref: "#/components/parameters/GameId"
+    get:
+      tags: [files]
+      summary: The complete state of the namespace
+      description: |
+        This is the baseline the client diffs against. It holds the current
+        version of every file, not the history.
+      responses:
+        "200":
+          description: The manifest
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  game_id: { type: string }
+                  version:
+                    type: integer
+                    description: Bumped on every change, useful to detect staleness
+                  files:
+                    type: array
+                    items: { $ref: "#/components/schemas/File" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /v1/games/{id}/files:
+    parameters:
+      - $ref: "#/components/parameters/GameId"
+    get:
+      tags: [files]
+      summary: The files of the namespace
+      responses:
+        "200":
+          description: The files
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  game_id: { type: string }
+                  files:
+                    type: array
+                    items: { $ref: "#/components/schemas/File" }
+
+  /v1/games/{id}/file:
+    parameters:
+      - $ref: "#/components/parameters/GameId"
+      - $ref: "#/components/parameters/FilePath"
+      - $ref: "#/components/parameters/Device"
+    get:
+      tags: [files]
+      summary: Download a file
+      responses:
+        "200":
+          description: The content of the file
+          headers:
+            X-File-Sha256:
+              schema: { type: string }
+            X-File-Version:
+              schema: { type: integer }
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    put:
+      tags: [files]
+      summary: Upload a new version of a file
+      description: |
+        The body is the raw content of the file.
+
+        When `expect_sha256` is present the server compares it with the
+        digest it currently holds and refuses the upload with a conflict when
+        they differ. This is how a change made elsewhere is detected instead
+        of being overwritten silently.
+      parameters:
+        - $ref: "#/components/parameters/ExpectSha256"
+        - $ref: "#/components/parameters/MtimeNs"
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+      responses:
+        "200":
+          description: The file was stored
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  file: { $ref: "#/components/schemas/File" }
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "413":
+          description: The file is over the configured limit
+
+    delete:
+      tags: [files]
+      summary: Remove a file from the namespace
+      parameters:
+        - $ref: "#/components/parameters/ExpectSha256"
+      responses:
+        "204":
+          description: The file was removed
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /v1/games/{id}/file/versions:
+    parameters:
+      - $ref: "#/components/parameters/GameId"
+      - $ref: "#/components/parameters/FilePath"
+    get:
+      tags: [files]
+      summary: The history of one file
+      responses:
+        "200":
+          description: The versions, newest first
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  game_id: { type: string }
+                  versions:
+                    type: array
+                    items: { $ref: "#/components/schemas/FileVersion" }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: The API key, for example `gsk_...`
+
+  parameters:
+    GameId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+    FilePath:
+      name: path
+      in: query
+      required: true
+      description: The path relative to the namespace, with forward slashes
+      schema: { type: string }
+      example: saves/slot1.dat
+    Device:
+      name: device
+      in: query
+      required: false
+      description: The name of the device performing the request
+      schema: { type: string }
+    ExpectSha256:
+      name: expect_sha256
+      in: query
+      required: false
+      description: The digest the client believes the server holds
+      schema: { type: string }
+    MtimeNs:
+      name: mtime_ns
+      in: query
+      required: false
+      description: The modification time observed by the client, in nanoseconds
+      schema: { type: integer, format: int64 }
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id: { type: integer }
+        username: { type: string }
+        display_name: { type: string }
+    ApiKey:
+      type: object
+      properties:
+        id: { type: integer }
+        label: { type: string }
+        prefix:
+          type: string
+          description: The non secret prefix of the key
+        created_at: { type: string }
+        last_used_at: { type: string }
+    Certificate:
+      type: object
+      properties:
+        certificate:
+          type: string
+          description: The PEM encoded trust anchor
+        fingerprint:
+          type: string
+          description: The SHA-256 of the trust anchor, colon separated
+        server_fingerprint:
+          type: string
+          description: The SHA-256 of the certificate the server presents
+    Game:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        slug: { type: string }
+        version: { type: integer }
+        created_at: { type: string }
+        updated_at: { type: string }
+    File:
+      type: object
+      properties:
+        path: { type: string }
+        size: { type: integer }
+        sha256: { type: string }
+        mtime_ns: { type: integer, format: int64 }
+        version: { type: integer }
+        device: { type: string }
+        updated_at: { type: string }
+    FileVersion:
+      type: object
+      properties:
+        path: { type: string }
+        size: { type: integer }
+        sha256: { type: string }
+        version: { type: integer }
+        device: { type: string }
+        created_at: { type: string }
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }
+
+  responses:
+    BadRequest:
+      description: The request was refused
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Unauthorized:
+      description: The API key is missing, unknown or revoked
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotFound:
+      description: The resource does not exist, or belongs to another account
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Conflict:
+      description: The resource changed on the server since the last synchronisation
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }

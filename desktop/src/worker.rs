@@ -13,9 +13,17 @@ pub enum Cmd {
     /// Connect to the server and read the account information.
     Connect { cfg: Config },
     /// Synchronise every game of the library.
-    SyncAll { cfg: Config, games: Vec<GameEntry>, paths: Paths },
+    SyncAll {
+        cfg: Config,
+        games: Vec<GameEntry>,
+        paths: Paths,
+    },
     /// Synchronise one game.
-    SyncGame { cfg: Config, entry: GameEntry, paths: Paths },
+    SyncGame {
+        cfg: Config,
+        entry: GameEntry,
+        paths: Paths,
+    },
     /// Apply the decision taken about a conflicting file.
     Resolve {
         cfg: Config,
@@ -39,7 +47,10 @@ pub enum Ev {
     /// A game finished synchronising.
     Synced { id: String, summary: String },
     /// A game has files that need a decision.
-    Conflicts { id: String, conflicts: Vec<Conflict> },
+    Conflicts {
+        id: String,
+        conflicts: Vec<Conflict>,
+    },
 }
 
 /// The worker handle used by the interface.
@@ -72,7 +83,10 @@ impl Worker {
             })
             .expect("starting the worker thread");
 
-        Self { tx: cmd_tx, rx: ev_rx }
+        Self {
+            tx: cmd_tx,
+            rx: ev_rx,
+        }
     }
 
     /// Queue a command.
@@ -108,10 +122,8 @@ async fn handle(cmd: Cmd, events: &Sender<Ev>) {
                     )));
                     match api.list_games().await {
                         Ok(games) => {
-                            let _ = events.send(Ev::Log(format!(
-                                "{} namespaces on the server",
-                                games.len()
-                            )));
+                            let _ = events
+                                .send(Ev::Log(format!("{} namespaces on the server", games.len())));
                         }
                         Err(err) => {
                             let _ = events.send(Ev::Log(format!("cannot list the games: {err}")));
@@ -119,7 +131,9 @@ async fn handle(cmd: Cmd, events: &Sender<Ev>) {
                     }
                 }
                 Err(err) => {
-                    let _ = events.send(Ev::Failed(format!("the server rejected the API key: {err}")));
+                    let _ = events.send(Ev::Failed(format!(
+                        "the server rejected the API key: {err}"
+                    )));
                 }
             },
             Err(err) => {
@@ -151,7 +165,13 @@ async fn handle(cmd: Cmd, events: &Sender<Ev>) {
             run_one(&api, &cfg, &entry, &paths, events).await;
         }
 
-        Cmd::Resolve { cfg, entry, conflict, resolution, paths } => {
+        Cmd::Resolve {
+            cfg,
+            entry,
+            conflict,
+            resolution,
+            paths,
+        } => {
             let api = match ApiClient::connect(&cfg).await {
                 Ok(api) => api,
                 Err(err) => {
@@ -166,7 +186,11 @@ async fn handle(cmd: Cmd, events: &Sender<Ev>) {
                     return;
                 }
             };
-            match sync::resolve_conflict(&api, &entry, &mut state, &paths, &cfg, &conflict, resolution).await {
+            match sync::resolve_conflict(
+                &api, &entry, &mut state, &paths, &cfg, &conflict, resolution,
+            )
+            .await
+            {
                 Ok(outcome) => {
                     emit(outcome.summary());
                     for warning in outcome.warnings {
@@ -209,7 +233,8 @@ async fn run_one(
     entry: &GameEntry,
     paths: &Paths,
     events: &Sender<Ev>,
-) {    let mut state = match GameState::load(&paths.state_file(&entry.slug())) {
+) {
+    let mut state = match GameState::load(&paths.state_file(&entry.slug())) {
         Ok(state) => state,
         Err(err) => {
             let _ = events.send(Ev::Failed(format!("{}: {err}", entry.name)));

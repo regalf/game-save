@@ -26,6 +26,8 @@ pub struct Config {
     pub max_file_size: u64,
     /// Remove from the server the files the game deletes from its save folder.
     pub delete_missing: bool,
+    /// Start the application together with the session.
+    pub autostart: bool,
 }
 
 impl Default for Config {
@@ -39,6 +41,7 @@ impl Default for Config {
             auto_sync: true,
             max_file_size: 1 << 30,
             delete_missing: false,
+            autostart: false,
         }
     }
 }
@@ -50,10 +53,10 @@ impl Config {
         if !path.exists() {
             return Ok(Self::default());
         }
-        let raw = fs::read_to_string(path)
-            .with_context(|| format!("reading {}", path.display()))?;
-        let cfg: Config = toml::from_str(&raw)
-            .with_context(|| format!("parsing {}", path.display()))?;
+        let raw =
+            fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
+        let cfg: Config =
+            toml::from_str(&raw).with_context(|| format!("parsing {}", path.display()))?;
         Ok(cfg)
     }
 
@@ -93,7 +96,10 @@ impl Paths {
         let data_dir = dirs::data_dir()
             .context("no data directory available")?
             .join("gamesave");
-        Ok(Self { config_dir, data_dir })
+        Ok(Self {
+            config_dir,
+            data_dir,
+        })
     }
 
     /// Path of the configuration file.
@@ -212,9 +218,10 @@ impl Library {
         if !path.exists() {
             return Ok(Self::default());
         }
-        let raw = fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
-        let lib: Library = serde_json::from_str(&raw)
-            .with_context(|| format!("parsing {}", path.display()))?;
+        let raw =
+            fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
+        let lib: Library =
+            serde_json::from_str(&raw).with_context(|| format!("parsing {}", path.display()))?;
         Ok(lib)
     }
 
@@ -293,9 +300,10 @@ impl GameState {
         if !path.exists() {
             return Ok(Self::default());
         }
-        let raw = fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
-        let state: GameState = serde_json::from_str(&raw)
-            .with_context(|| format!("parsing {}", path.display()))?;
+        let raw =
+            fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
+        let state: GameState =
+            serde_json::from_str(&raw).with_context(|| format!("parsing {}", path.display()))?;
         Ok(state)
     }
 
