@@ -30,6 +30,8 @@ pub struct Config {
     pub autostart: bool,
     /// The theme of the interface: "dark" or "light".
     pub theme: String,
+    /// Write the log to a file, next to the state.
+    pub enable_logs: bool,
 }
 
 impl Default for Config {
@@ -45,6 +47,7 @@ impl Default for Config {
             delete_missing: false,
             autostart: false,
             theme: "dark".to_string(),
+            enable_logs: true,
         }
     }
 }

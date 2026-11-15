@@ -34,10 +34,10 @@ fn main() {
         std::process::exit(1);
     }
 
-    init_logging(&paths);
-
     let cfg = config::Config::load(&paths.config_file()).unwrap_or_default();
     let library = config::Library::load(&paths.library_file()).unwrap_or_default();
+
+    init_logging(&paths, cfg.enable_logs);
 
     let options = eframe::NativeOptions {
         viewport: ViewportBuilder::default()
@@ -69,11 +69,11 @@ fn main() {
 /// The interface has a log panel of its own for the everyday use. This is for
 /// the rest: a release build on Windows has no console, so the log goes to a
 /// file and a panic before the window opens still leaves a trace.
-fn init_logging(paths: &config::Paths) {
+fn init_logging(paths: &config::Paths, enable_logs: bool) {
     let mut builder =
         env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"));
 
-    if cfg!(all(target_os = "windows", not(debug_assertions))) {
+    if enable_logs {
         let path = paths.data_dir.join("gamesave.log");
         if let Some(parent) = path.parent() {
             let _ = std::fs::create_dir_all(parent);

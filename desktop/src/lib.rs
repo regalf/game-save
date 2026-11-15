@@ -16,6 +16,7 @@ pub mod api;
 pub mod app;
 pub mod autostart;
 pub mod config;
+pub mod icons;
 pub mod scanner;
 pub mod session;
 pub mod sync;

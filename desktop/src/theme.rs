@@ -16,28 +16,36 @@ pub mod palette {
         use super::Color32;
 
         /// The colour of the window.
-        pub const BACKGROUND: Color32 = Color32::from_rgb(24, 25, 27);
+        pub const BACKGROUND: Color32 = Color32::from_rgb(0x0D, 0x0D, 0x14);
         /// The colour of the panels that sit on the window.
-        pub const SURFACE: Color32 = Color32::from_rgb(32, 33, 36);
+        pub const SURFACE: Color32 = Color32::from_rgb(0x10, 0x10, 0x18);
+        /// The colour of the panels that sit on a panel.
+        pub const SURFACE_ALT: Color32 = Color32::from_rgb(0x14, 0x14, 0x1E);
         /// The colour of the lines between the elements.
-        pub const BORDER: Color32 = Color32::from_rgb(52, 54, 58);
+        pub const BORDER: Color32 = Color32::from_rgb(0x25, 0x25, 0x36);
+        /// The colour of the lines that are there but quiet.
+        pub const BORDER_SOFT: Color32 = Color32::from_rgb(0x1B, 0x1B, 0x28);
+        /// The colour of the lines that stand out.
+        pub const BORDER_STRONG: Color32 = Color32::from_rgb(0x3C, 0x3C, 0x57);
         /// The colour of the text.
-        pub const TEXT: Color32 = Color32::from_rgb(232, 234, 238);
+        pub const TEXT: Color32 = Color32::from_rgb(0xFF, 0xFF, 0xFF);
         /// The colour of the text that has to stand out: this is the colour
         /// egui gives to the strong text.
-        pub const TEXT_STRONG: Color32 = Color32::from_rgb(255, 255, 255);
+        pub const TEXT_STRONG: Color32 = Color32::from_rgb(0xFF, 0xFF, 0xFF);
         /// The colour of the text that matters less.
-        pub const TEXT_MUTED: Color32 = Color32::from_rgb(148, 152, 160);
+        pub const TEXT_MUTED: Color32 = Color32::from_rgb(0x83, 0x83, 0x87);
+        /// The colour of the text that is only a hint.
+        pub const TEXT_PLACEHOLDER: Color32 = Color32::from_rgb(0xA2, 0xA2, 0xA4);
         /// The colour of the accent.
-        pub const ACCENT: Color32 = Color32::from_rgb(86, 156, 214);
-        /// The colour of the accent when it is hovered.
-        pub const ACCENT_HOVER: Color32 = Color32::from_rgb(112, 176, 226);
+        pub const ACCENT: Color32 = Color32::from_rgb(0x4F, 0x80, 0xFF);
+        /// The colour of the accent, quieter.
+        pub const ACCENT_MUTED: Color32 = Color32::from_rgb(0x6A, 0x6A, 0x96);
         /// The colour of a good news.
-        pub const SUCCESS: Color32 = Color32::from_rgb(126, 199, 132);
+        pub const SUCCESS: Color32 = Color32::from_rgb(0x83, 0x83, 0x87);
         /// The colour of something that wants the attention.
-        pub const WARNING: Color32 = Color32::from_rgb(224, 178, 96);
+        pub const WARNING: Color32 = Color32::from_rgb(0xA2, 0xA2, 0xA4);
         /// The colour of a problem.
-        pub const DANGER: Color32 = Color32::from_rgb(226, 118, 110);
+        pub const DANGER: Color32 = Color32::from_rgb(0xFB, 0x4D, 0x4D);
     }
 
     /// The colours of the light theme.
@@ -45,28 +53,35 @@ pub mod palette {
         use super::Color32;
 
         /// The colour of the window.
-        pub const BACKGROUND: Color32 = Color32::from_rgb(245, 246, 248);
+        pub const BACKGROUND: Color32 = Color32::from_rgb(0xF5, 0xF5, 0xF7);
         /// The colour of the panels that sit on the window.
-        pub const SURFACE: Color32 = Color32::from_rgb(255, 255, 255);
+        pub const SURFACE: Color32 = Color32::from_rgb(0xFF, 0xFF, 0xFF);
+        /// The colour of the panels that sit on a panel.
+        pub const SURFACE_ALT: Color32 = Color32::from_rgb(0xF0, 0xF0, 0xF4);
         /// The colour of the lines between the elements.
-        pub const BORDER: Color32 = Color32::from_rgb(216, 219, 224);
+        pub const BORDER: Color32 = Color32::from_rgb(0xD8, 0xD9, 0xE0);
+        /// The colour of the lines that are there but quiet.
+        pub const BORDER_SOFT: Color32 = Color32::from_rgb(0xE6, 0xE7, 0xEC);
+        /// The colour of the lines that stand out.
+        pub const BORDER_STRONG: Color32 = Color32::from_rgb(0xC2, 0xC4, 0xCE);
         /// The colour of the text.
-        pub const TEXT: Color32 = Color32::from_rgb(32, 34, 38);
-        /// The colour of the text that has to stand out: this is the colour
-        /// egui gives to the strong text.
-        pub const TEXT_STRONG: Color32 = Color32::from_rgb(0, 0, 0);
+        pub const TEXT: Color32 = Color32::from_rgb(0x1A, 0x1A, 0x20);
+        /// The colour of the text that has to stand out.
+        pub const TEXT_STRONG: Color32 = Color32::from_rgb(0x00, 0x00, 0x00);
         /// The colour of the text that matters less.
-        pub const TEXT_MUTED: Color32 = Color32::from_rgb(108, 112, 120);
+        pub const TEXT_MUTED: Color32 = Color32::from_rgb(0x6C, 0x6C, 0x78);
+        /// The colour of the text that is only a hint.
+        pub const TEXT_PLACEHOLDER: Color32 = Color32::from_rgb(0x9A, 0x9C, 0xA6);
         /// The colour of the accent.
-        pub const ACCENT: Color32 = Color32::from_rgb(0, 95, 184);
-        /// The colour of the accent when it is hovered.
-        pub const ACCENT_HOVER: Color32 = Color32::from_rgb(0, 78, 152);
+        pub const ACCENT: Color32 = Color32::from_rgb(0x0F, 0x62, 0xD6);
+        /// The colour of the accent, quieter.
+        pub const ACCENT_MUTED: Color32 = Color32::from_rgb(0x6A, 0x6A, 0x96);
         /// The colour of a good news.
-        pub const SUCCESS: Color32 = Color32::from_rgb(45, 135, 60);
+        pub const SUCCESS: Color32 = Color32::from_rgb(0x2D, 0x87, 0x3C);
         /// The colour of something that wants the attention.
-        pub const WARNING: Color32 = Color32::from_rgb(176, 122, 12);
+        pub const WARNING: Color32 = Color32::from_rgb(0xB0, 0x7A, 0x0C);
         /// The colour of a problem.
-        pub const DANGER: Color32 = Color32::from_rgb(190, 48, 42);
+        pub const DANGER: Color32 = Color32::from_rgb(0xBE, 0x30, 0x2A);
     }
 }
 
@@ -195,9 +210,9 @@ pub fn apply(ctx: &Context, dark: bool) {
     if dark {
         visuals.override_text_color = Some(palette::dark::TEXT);
         visuals.window_fill = palette::dark::SURFACE;
-        visuals.panel_fill = palette::dark::SURFACE;
+        visuals.panel_fill = palette::dark::BACKGROUND;
         visuals.extreme_bg_color = palette::dark::BACKGROUND;
-        visuals.faint_bg_color = palette::dark::SURFACE;
+        visuals.faint_bg_color = palette::dark::SURFACE_ALT;
         visuals.hyperlink_color = palette::dark::ACCENT;
         visuals.selection.bg_fill = palette::dark::ACCENT.gamma_multiply(0.35);
         visuals.widgets.noninteractive.bg_fill = palette::dark::SURFACE;
@@ -206,23 +221,23 @@ pub fn apply(ctx: &Context, dark: bool) {
         visuals.widgets.inactive.bg_fill = palette::dark::SURFACE;
         visuals.widgets.inactive.weak_bg_fill = palette::dark::SURFACE;
         visuals.widgets.inactive.fg_stroke = egui::Stroke::new(1.0, palette::dark::TEXT);
-        visuals.widgets.hovered.bg_fill = palette::dark::SURFACE;
-        visuals.widgets.hovered.weak_bg_fill = palette::dark::SURFACE;
+        visuals.widgets.hovered.bg_fill = palette::dark::SURFACE_ALT;
+        visuals.widgets.hovered.weak_bg_fill = palette::dark::SURFACE_ALT;
         visuals.widgets.hovered.fg_stroke = egui::Stroke::new(1.0, palette::dark::TEXT);
         // The active colour is the colour of the strong text in egui, so it
         // has to be a brighter text and not the accent.
-        visuals.widgets.active.bg_fill = palette::dark::SURFACE;
-        visuals.widgets.active.weak_bg_fill = palette::dark::SURFACE;
+        visuals.widgets.active.bg_fill = palette::dark::SURFACE_ALT;
+        visuals.widgets.active.weak_bg_fill = palette::dark::SURFACE_ALT;
         visuals.widgets.active.fg_stroke = egui::Stroke::new(1.0, palette::dark::TEXT_STRONG);
-        visuals.widgets.open.bg_fill = palette::dark::SURFACE;
-        visuals.widgets.open.weak_bg_fill = palette::dark::SURFACE;
-        visuals.widgets.open.fg_stroke = egui::Stroke::new(1.0, palette::dark::TEXT);
+        visuals.widgets.open.bg_fill = palette::dark::SURFACE_ALT;
+        visuals.widgets.open.weak_bg_fill = palette::dark::SURFACE_ALT;
+        visuals.widgets.open.fg_stroke = egui::Stroke::new(1.0, palette::dark::ACCENT);
     } else {
         visuals.override_text_color = Some(palette::light::TEXT);
         visuals.window_fill = palette::light::SURFACE;
-        visuals.panel_fill = palette::light::SURFACE;
+        visuals.panel_fill = palette::light::BACKGROUND;
         visuals.extreme_bg_color = palette::light::BACKGROUND;
-        visuals.faint_bg_color = palette::light::SURFACE;
+        visuals.faint_bg_color = palette::light::SURFACE_ALT;
         visuals.hyperlink_color = palette::light::ACCENT;
         visuals.selection.bg_fill = palette::light::ACCENT.gamma_multiply(0.25);
         visuals.widgets.noninteractive.bg_fill = palette::light::SURFACE;
@@ -231,17 +246,17 @@ pub fn apply(ctx: &Context, dark: bool) {
         visuals.widgets.inactive.bg_fill = palette::light::SURFACE;
         visuals.widgets.inactive.weak_bg_fill = palette::light::SURFACE;
         visuals.widgets.inactive.fg_stroke = egui::Stroke::new(1.0, palette::light::TEXT);
-        visuals.widgets.hovered.bg_fill = palette::light::SURFACE;
-        visuals.widgets.hovered.weak_bg_fill = palette::light::SURFACE;
+        visuals.widgets.hovered.bg_fill = palette::light::SURFACE_ALT;
+        visuals.widgets.hovered.weak_bg_fill = palette::light::SURFACE_ALT;
         visuals.widgets.hovered.fg_stroke = egui::Stroke::new(1.0, palette::light::TEXT);
         // The active colour is the colour of the strong text in egui, so it
         // has to be a stronger text and not the accent.
-        visuals.widgets.active.bg_fill = palette::light::SURFACE;
-        visuals.widgets.active.weak_bg_fill = palette::light::SURFACE;
+        visuals.widgets.active.bg_fill = palette::light::SURFACE_ALT;
+        visuals.widgets.active.weak_bg_fill = palette::light::SURFACE_ALT;
         visuals.widgets.active.fg_stroke = egui::Stroke::new(1.0, palette::light::TEXT_STRONG);
-        visuals.widgets.open.bg_fill = palette::light::SURFACE;
-        visuals.widgets.open.weak_bg_fill = palette::light::SURFACE;
-        visuals.widgets.open.fg_stroke = egui::Stroke::new(1.0, palette::light::TEXT);
+        visuals.widgets.open.bg_fill = palette::light::SURFACE_ALT;
+        visuals.widgets.open.weak_bg_fill = palette::light::SURFACE_ALT;
+        visuals.widgets.open.fg_stroke = egui::Stroke::new(1.0, palette::light::ACCENT);
     }
 
     visuals.window_corner_radius = 8u8.into();

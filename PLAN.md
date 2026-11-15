@@ -178,7 +178,22 @@ gamesave version
 | `scanner` | **read only** walk of the save folder, with hashing |
 | `sync` | the diff engine: upload, download, conflict detection |
 | `session` | process detection: is the game running |
+| `icons` | the icon of the game, read from the executable |
+| `theme` | fonts, colours and spacing, in one place |
 | `ui` | the egui library table, settings and conflict dialog |
+
+### The icons
+
+The icon of a game is embedded in its executable, as a PE resource group. It
+is read with a pure Rust parser, so it works on every platform: a Windows game
+played with Wine on Linux gives its icon as well.
+
+The resources are mapped read only, so opening the icon of a hundred
+megabyte executable costs nothing, and the result is cached next to the state
+of the application.
+
+Not every executable carries an icon: a shell library, for one, has none. The
+library falls back to a plain icon in that case.
 
 ### The scanner
 
