@@ -74,17 +74,17 @@ That single rule is what makes the app safe to leave running.
 ┌───────────────────────┐        HTTPS, pinned self signed certificate
 │  Desktop companion    │◄──────────────────────────────────────────┐
 │  Rust + egui          │                                           │
-│                       │   ┌─────────────────────────────────────┐  │
-│  ┌──────────────────┐ │   │       Game Save server (Go)        │  │
-│  │ session watcher  │ │   │                                     │  │
-│  │ read only scanner│ │   │  ┌───────────┐  ┌───────────────┐ │  │
-│  │ sync engine      │ │   │  │  REST API │  │  sync engine  │ │  │
-│  │ egui library UI  │ │   │  └─────┬─────┘  └───────┬───────┘ │  │
-│  └──────────────────┘ │   │        │                │         │  │
-└───────────────────────┘   │  ┌─────▼─────┐   ┌──────▼───────┐  │
-                            │  │  SQLite   │   │  blob store  │  │
-                            │  │ (meta)    │   │  (CAS disk)  │  │
-                            │  └───────────┘   └──────────────┘  │
+│                       │   ┌─────────────────────────────────────┐ │
+│  ┌──────────────────┐ │   │       Game Save server (Go)         │ │
+│  │ session watcher  │ │   │                                     │ │
+│  │ read only scanner│ │   │  ┌───────────┐  ┌───────────────┐   │ │
+│  │ sync engine      │ │   │  │  REST API │  │  sync engine  │   │ │
+│  │ egui library UI  │ │   │  └─────┬─────┘  └───────┬───────┘   │ │
+│  └──────────────────┘ │   │        │                │           │ │
+└───────────────────────┘   │  ┌─────▼─────┐   ┌──────▼───────┐   ├─┘
+                            │  │  SQLite   │   │  blob store  │   │
+                            │  │ (meta)    │   │  (CAS disk)  │   │
+                            │  └───────────┘   └──────────────┘   │
                             └─────────────────────────────────────┘
 ```
 
