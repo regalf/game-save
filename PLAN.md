@@ -180,7 +180,9 @@ gamesave version
 | `session` | process detection: is the game running |
 | `icons` | the icon of the game, read from the executable |
 | `theme` | fonts, colours and spacing, in one place |
-| `ui` | the egui library table, settings and conflict dialog |
+| `widgets` | the buttons and the boxes, painted by hand |
+| `overlay` | the panels that come in the middle of the screen |
+| `ui` | the egui library of games, settings and conflict dialog |
 
 ### The icons
 
@@ -273,8 +275,8 @@ local version* and *keep both*.
 | M1 | server: config, SQLite, migrations, users, keys, TLS | done |
 | M2 | server: games, files, manifest, optimistic locking, history | done |
 | M3 | client: configuration, API client, certificate pinning | done |
-| M4 | client: library table, scanner, session watcher, sync engine | done |
-| M5 | client: conflict dialog, mirror, tray, autostart | in progress |
+| M4 | client: library of games, scanner, session watcher, sync engine | done |
+| M5 | client: conflict dialog, mirror, tray, autostart, icons, theme | done |
 | M6 | packaging: AppImage, deb, systemd user unit, Windows build | planned |
 | M7 | chunk level delta upload for large files | planned |
 | M8 | end to end encryption, opt-in per user | planned |
