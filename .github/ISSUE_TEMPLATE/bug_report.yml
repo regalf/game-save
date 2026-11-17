@@ -6,7 +6,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for reporting. **One issue describes one problem**: if you found two, open two issues and link them to each other. The reasons are in [CONTRIBUTING.md](../blob/main/CONTRIBUTING.md).
+        Thanks for reporting. **One issue describes one problem**: if you found two, open two issues and link them to each other. The reasons are in [CONTRIBUTING.md](https://github.com/regalf/game-save/blob/main/CONTRIBUTING.md).
 
   - type: textarea
     id: what-happened

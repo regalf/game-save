@@ -6,7 +6,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        **One issue, one problem.** A request for two things becomes two issues, otherwise the first one is forgotten while the second is discussed. See [CONTRIBUTING.md](../blob/main/CONTRIBUTING.md).
+        **One issue, one problem.** A request for two things becomes two issues, otherwise the first one is forgotten while the second is discussed. See [CONTRIBUTING.md](https://github.com/regalf/game-save/blob/main/CONTRIBUTING.md).
 
   - type: textarea
     id: the-thing
