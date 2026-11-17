@@ -202,6 +202,17 @@ program: the interface looks the same on every machine.
 
 ---
 
+## Contributing
+
+The rules are short and they are the ones that keep the project healthy: one
+problem per issue, one fix per pull request, and say so when an AI agent
+helped. They are all in [CONTRIBUTING.md](CONTRIBUTING.md).
+
+The behaviour expected of everybody is in
+[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
+
+---
+
 ## Multi user and API keys
 
 The server supports several accounts. Every account has its own games, its own
