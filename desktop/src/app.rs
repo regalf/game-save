@@ -4,7 +4,7 @@
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::time::{Duration, Instant};
 
-use egui::{Align, Layout, RichText, Stroke, TextureHandle, Vec2};
+use egui::{Align, Layout, RichText, Stroke, TextureHandle};
 
 use crate::autostart;
 use crate::config::{now_string, Config, GameEntry, Library, Paths};
@@ -23,6 +23,22 @@ struct LogLine {
     text: String,
     error: bool,
 }
+
+/// The icon of a game, with the size it has in the executable.
+struct GameIcon {
+    texture: TextureHandle,
+    width: u32,
+    height: u32,
+}
+
+/// The side of the square the icon sits in.
+const ICON_BOX: f32 = 140.0;
+
+/// The margin inside that square.
+const ICON_PADDING: f32 = 6.0;
+
+/// The height of every card of the grid.
+const CARD_HEIGHT: f32 = 280.0;
 
 /// The state of one game, as shown in the card.
 #[derive(Default, Clone)]
@@ -71,7 +87,7 @@ pub struct GameSaveApp {
     /// What is wrong with the draft, shown in red.
     draft_error: String,
     /// The icons of the games, once they have been read.
-    icons: HashMap<String, TextureHandle>,
+    icons: HashMap<String, GameIcon>,
     status: String,
     status_ok: bool,
     last_poll: Instant,
@@ -158,7 +174,14 @@ impl GameSaveApp {
                     );
                     let texture =
                         ctx.load_texture(format!("icon-{id}"), image, egui::TextureOptions::LINEAR);
-                    self.icons.insert(id, texture);
+                    self.icons.insert(
+                        id,
+                        GameIcon {
+                            texture,
+                            width,
+                            height,
+                        },
+                    );
                 }
                 Ev::Connected(text) => {
                     self.status = text.clone();
@@ -331,34 +354,54 @@ impl GameSaveApp {
                 });
                 ui.separator();
 
-                // The icon of the game, in its box.
-                let texture = self.icons.get(&entry.id).cloned();
-                egui::Frame::new()
-                    .stroke(Stroke::new(1.0, border))
-                    .inner_margin(6.0)
-                    .show(ui, |ui| {
-                        ui.set_width(inner - 24.0);
-                        match texture {
-                            Some(texture) => {
-                                // The icon is scaled to the box, whatever
-                                // the size it has in the executable.
-                                ui.add(egui::Image::from_texture(egui::load::SizedTexture::new(
-                                    texture.id(),
-                                    Vec2::splat(120.0),
-                                )));
-                            }
-                            None => {
-                                ui.with_layout(Layout::top_down(Align::Center), |ui| {
-                                    ui.label(
-                                        RichText::new("(no icon)")
-                                            .color(palette::dark::TEXT_FAINT)
-                                            .size(size::SMALL),
-                                    );
-                                });
-                                ui.add_space(96.0);
-                            }
-                        }
-                    });
+                // The icon of the game, in a square box in the middle of the
+                // card. The box has a size of its own, so it is a square
+                // whatever the icon looks like.
+                let icon = self
+                    .icons
+                    .get(&entry.id)
+                    .map(|icon| (icon.texture.id(), icon.width, icon.height));
+                let side = ICON_BOX;
+                let slot = ui.allocate_exact_size(egui::vec2(inner, side), egui::Sense::hover());
+                let box_rect =
+                    egui::Rect::from_center_size(slot.0.center(), egui::vec2(side, side));
+                ui.painter().rect(
+                    box_rect,
+                    0.0,
+                    palette::dark::SURFACE,
+                    Stroke::new(1.0, border),
+                    egui::StrokeKind::Middle,
+                );
+
+                match icon {
+                    Some((texture, width, height)) => {
+                        // The icon keeps its proportions and fits in the box.
+                        let room = side - 2.0 * ICON_PADDING;
+                        let ratio = width as f32 / height as f32;
+                        let (w, h) = if ratio >= 1.0 {
+                            (room, room / ratio)
+                        } else {
+                            (room * ratio, room)
+                        };
+                        let image_rect =
+                            egui::Rect::from_center_size(box_rect.center(), egui::vec2(w, h));
+                        ui.painter().image(
+                            texture,
+                            image_rect,
+                            egui::Rect::from_min_size(egui::epaint::WHITE_UV, egui::vec2(1.0, 1.0)),
+                            egui::Color32::WHITE,
+                        );
+                    }
+                    None => {
+                        ui.painter().text(
+                            box_rect.center(),
+                            egui::Align2::CENTER_CENTER,
+                            "(no icon)",
+                            egui::FontId::proportional(size::SMALL),
+                            palette::dark::TEXT_FAINT,
+                        );
+                    }
+                }
 
                 ui.add_space(4.0);
 
@@ -381,38 +424,38 @@ impl GameSaveApp {
 
     /// The card that adds a game: the last one of the grid.
     fn add_card(&mut self, ui: &mut egui::Ui) {
-        let response = egui::Frame::new()
-            .fill(palette::dark::SURFACE)
-            .stroke(Stroke::new(1.0, palette::dark::BORDER))
-            .inner_margin(10.0)
-            .show(ui, |ui| {
-                ui.set_width(ui.available_width());
-                ui.add_space(100.0);
-                ui.with_layout(Layout::top_down(Align::Center), |ui| {
-                    ui.label(
-                        RichText::new("+")
-                            .color(palette::dark::TEXT_FAINT)
-                            .size(40.0),
-                    );
-                    ui.label(
-                        RichText::new("Add game")
-                            .color(palette::dark::TEXT_FAINT)
-                            .size(size::BODY),
-                    );
-                });
-                ui.add_space(100.0);
-            });
+        let width = ui.available_width();
+        let (rect, response) =
+            ui.allocate_exact_size(egui::vec2(width, CARD_HEIGHT), egui::Sense::click());
+
+        if ui.is_rect_visible(rect) {
+            ui.painter().rect(
+                rect,
+                0.0,
+                palette::dark::SURFACE,
+                Stroke::new(1.0, palette::dark::BORDER),
+                egui::StrokeKind::Middle,
+            );
+
+            let centre = rect.center();
+            ui.painter().text(
+                centre - egui::vec2(0.0, 16.0),
+                egui::Align2::CENTER_CENTER,
+                "+",
+                egui::FontId::proportional(40.0),
+                palette::dark::TEXT_FAINT,
+            );
+            ui.painter().text(
+                centre + egui::vec2(0.0, 30.0),
+                egui::Align2::CENTER_CENTER,
+                "Add game",
+                egui::FontId::proportional(size::BODY),
+                palette::dark::TEXT_FAINT,
+            );
+        }
 
         // The whole card is a button.
-        let rect = response.response.rect;
-        if ui
-            .interact(
-                rect,
-                ui.scope_id().with("add-game-card"),
-                egui::Sense::click(),
-            )
-            .clicked()
-        {
+        if response.clicked() {
             self.open_add(None);
         }
     }
