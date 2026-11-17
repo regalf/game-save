@@ -3,6 +3,11 @@
 The server is one binary and one data directory. That is the whole thing to
 install.
 
+**Before reading on, read [../SECURITY.md](../SECURITY.md):** the program is
+made for a home network, it is not built to resist an adversary, and it must
+not be exposed to the internet. The last section of this document says how to
+reach it from outside without opening a port.
+
 ---
 
 ## The binary
@@ -36,46 +41,53 @@ GOOS=linux GOARCH=arm64 go build -o gamesave-linux-arm64 ./cmd/gamesave
 The key is printed once. The server prints the fingerprint of its certificate
 authority, which the client pins.
 
+The fingerprints are also written to `<data_dir>/certs/fingerprint.txt`:
+
+```
+authority : AA:BB:CC:…   ← this is the one the client pins
+server    : DD:EE:FF:…   ← the certificate the server presents
+```
+
+Copy the **authority** one into the client. If the certificate authority is
+regenerated, the fingerprint changes and every client refuses to connect
+until it is updated: that is the point of pinning.
+
 ---
 
-## Configuration
-
-Copy `server/config.example.yaml` and edit it. Every value can be overridden
-with an environment variable, which is handy for containers.
-
-```yaml
-server:
-  listen: ":8443"
-  data_dir: "/var/lib/gamesave"
-  tls:
-    mode: "selfsigned"
-    san:
-      - "192.168.1.10"      # the address the client connects to
-      - "gamesave.local"    # or the hostname
-      - "localhost"
-      - "127.0.0.1"
-    validity_days: 3650
-    fingerprint_file: "certs/fingerprint.txt"
-auth:
-  require_api_key: true
-limits:
-  max_file_size: 1073741824
-```
-
-The subject alternative names matter: the client connects to an address that
-has to appear in the certificate. If the client complains about the
-certificate not covering the address, add it to `san` and restart the server.
-
-The first start creates the certificate authority and the certificate:
+## Where the data lives
 
 ```
-<data_dir>/certs/
-├── ca.crt        the authority, the fingerprint to pin
-├── ca.key
-├── server.crt    the certificate the server presents
-├── server.key
-└── fingerprint.txt
+<data_dir>/
+├── gamesave.db            SQLite: accounts, keys, games, manifests, history
+├── gamesave.db-wal
+├── blobs/                 the files themselves, content addressed
+└── certs/                 the authority, the certificate, the fingerprints
 ```
+
+Two things follow from that:
+
+- **the backup is the directory.** Copy it while the server is stopped, or
+  use a snapshot of the filesystem;
+- **the permissions matter.** The directory holds the saves; only the user
+  that runs the server should read it.
+
+---
+
+## Reaching it from outside, without opening a port
+
+Opening the port on the router exposes the service to the internet, and the
+program is not built for that. Use one of these instead:
+
+| Way | When |
+|---|---|
+| **Tailscale**, or a similar mesh VPN | the simplest: every machine joins the tailnet and the server listens on its Tailscale address |
+| **WireGuard** | one interface, one peer per device; only the WireGuard port is exposed |
+| **ZeroTier / Nebula / OpenVPN** | the same idea, a different tool |
+| **Reverse SSH tunnel** | if you only need it from your laptop: `ssh -N -R 8443:localhost:8443 user@home` |
+| **Reverse proxy with a real certificate** | only if you already have a domain and a proxy; it still exposes the service, so it needs authentication in front of it |
+
+What does **not** count: the port forwarding alone, a firewall rule limited to
+some IP addresses, and "nobody will find it on port 8443".
 
 ---
 
@@ -121,15 +133,82 @@ docker compose up -d
 docker compose logs -f
 ```
 
-The compose file keeps the data on a volume. The fingerprint of the
-authority is printed on the first start; read it with:
+The compose file keeps the data on a volume. The fingerprint of the authority
+is printed at the first start; read it with:
 
 ```bash
 docker compose exec gamesave cat /data/certs/fingerprint.txt
 ```
 
+The image is built in two stages and the runtime is small; the binary is
+static because CGO is disabled at build time.
+
 ---
 
+## Backups
+
+The data directory holds everything. While the server is stopped:
+
+```bash
+sudo systemctl stop gamesave
+sudo tar czf gamesave-backup-$(date +%F).tar.gz -C /var/lib gamesave
+sudo systemctl start gamesave
+```
+
+If the server cannot be stopped, take a snapshot of the filesystem (ZFS,
+btrfs, LVM) or copy the directory while the server is idle and accept that
+the database and the blobs may be a little out of step: the history keeps
+every version, so nothing is lost permanently.
+
+**Test the backup.** A backup that has never been restored is a hope, not a
+backup.
+
+---
+
+## Housekeeping
+
+```bash
+gamesave gc
+```
+
+Blobs are never removed on their own: a file deleted from every game does not
+free its space immediately. `gc` removes the blobs no game references any
+more.
+
+---
+
+## Updating
+
+1. stop the service;
+2. back up the data directory;
+3. replace the binary;
+4. start the service;
+5. check that the fingerprint has not changed.
+
+The schema is migrated at the start, in a transaction: an interrupted start
+leaves the previous version intact.
+
+---
+
+## The client
+
+The companion app lives on the desktop machines. It is configured with:
+
+- the server URL, for example `https://gamesave-machine:8443`;
+- the fingerprint of the authority, printed by the server;
+- an API key, one per machine.
+
+Its directories are `~/.config/gamesave` and `~/.local/share/gamesave` on
+Linux, `%APPDATA%\gamesave` and `%LOCALAPPDATA%\gamesave` on Windows, and
+`GAMESAVE_HOME` overrides both.
+
+See [CLIENT.md](CLIENT.md) for the interface and the state.
+
+---
+
+## Before turning it on
+
+The checklist is in [../SECURITY.md](../SECURITY.md), at the end. Read it.
 ## Accounts and keys
 
 ```bash
@@ -146,46 +225,18 @@ gamesave key revoke --user alice --id 3
 One key per machine is the sensible habit: a key can be revoked without
 disturbing the other machines.
 
----
-
-## Housekeeping
-
-Blobs are never removed on their own, so a file deleted from every game does
-not free its space immediately:
-
-```bash
-gamesave gc
-```
-
-It removes the blobs no game references any more.
 
 ---
 
-## Backups
+## A firewall on the LAN
 
-The data directory holds everything: the database and the blobs. Copy it
-while the server is stopped, or use the SQLite backup properly if the server
-is running:
-
-```bash
-sudo systemctl stop gamesave
-sudo tar czf gamesave-backup-$(date +%F).tar.gz -C /var/lib gamesave
-sudo systemctl start gamesave
-```
-
----
-
-## Reaching it from another machine
-
-The port has to be open on the LAN:
+If the machines of the household are on more than one interface, or the
+server shares the network with machines that should not reach it:
 
 ```bash
-sudo ufw allow 8443/tcp
+sudo ufw allow from 192.168.1.0/24 to any port 8443
 ```
 
-That is all for a home network. If the server has to be reachable from
-outside, put a reverse proxy in front of it and let the proxy terminate TLS
-with a real certificate; keep the Game Save port on the LAN only.
-
-Do not expose the port to the internet as it is: the transport is fine, but
-the API key is the only thing standing between a stranger and your saves.
+Nothing more is needed on a home network. What is **not** enough is
+restricting the rule to some addresses and calling the service
+protected: see [../SECURITY.md](../SECURITY.md).

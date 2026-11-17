@@ -9,51 +9,70 @@ desktop app that watches your games and keeps the saves in sync between
 machines. It is built for a homelab: one binary, one SQLite file, one blob
 directory, no external service, no account, no telemetry.
 
-It is for the games that keep their saves in a folder on disk and have no
-cloud service of their own: the indie games, the games from GOG, Epic or
-itch.io, and the Steam games whose developer never added the Steam Cloud SDK.
+![The library of Game Save](docs/images/library.png)
 
 ---
 
-## When to use it, and when not to
+## Who it is for
 
 | Game | What to use |
 |---|---|
-| A game that integrates the Steam Cloud SDK | **Steam Cloud.** It is already integrated, it is what the developer tested, and it works with the game's own cloud handling. |
-| A game from GOG, Epic or itch.io | **Game Save.** Those stores have no cloud save at all, the saves live in a folder on disk and they are lost with the machine. |
+| A game that integrates the Steam Cloud SDK | **Steam Cloud.** It is already integrated, it is what the developer tested. |
+| A game from GOG, Epic or itch.io | **Game Save.** Those stores have no cloud save at all, the saves live in a folder on disk and are lost with the machine. |
 | An indie game on Steam that does not use the Steam Cloud SDK | **Game Save.** Being on Steam does not mean the save is in the cloud: the SDK has to be part of the game. |
-| A game that writes somewhere unusual, in a folder you cannot point at | **Game Save**, if you can find the folder. The app needs to know where the saves are. |
 
-In short: Game Save covers the gap Steam Cloud leaves. It does not compete
-with it, and running both on the same game is a good way to confuse yourself.
+Game Save covers the gap Steam Cloud leaves. It does not compete with it.
 
 ---
 
-## The idea
+## How it works
 
-You point the app at a game's executable and at the folder where that game
-stores its saves. The app then:
+You tell the app which executable is the game and which folder holds its
+saves. The app notices when the game starts and when it stops, and at the end
+of every session it reads the save folder, compares it with what the server
+holds, and uploads what is new or changed.
 
-1. notices when the game is running, and when it stops;
-2. at the end of every session it reads the save folder, computes the SHA-256
-   of each file and compares it with what it saw last time and with what the
-   server holds;
-3. uploads what is new or changed, downloads what is newer on the server, and
-   asks you what to do when both sides changed.
+**Your save files are never written to.** The app only reads them. The only
+thing it writes is its own state, in its own directory.
 
-The folder the game writes to has to be found by looking where the engines
-put it: `~/.local/share/<publisher>/<game>` for Unity, `~/.config/unity3d` for
-the older Unity builds, `~/Documents/My Games` for the GOG and Epic
-installers, `~/.local/share/Steam/steamapps/common` for the games installed
-with Steam. **Automatic discovery of that folder is planned**, for now you
-point the app at it yourself.
+Nothing is ever overwritten silently: an upload tells the server which version
+it believes is there, and the server answers `409 Conflict` when that is not
+true. When both sides changed, you choose which one wins.
 
-**Your save files are never written to.** The companion only reads them. The
-only thing it ever writes is its own state, in its own directory, and copies of
-the cloud content in a mirror folder. Restoring a file into the game's save
-folder is possible, but only when you explicitly ask for it.
+---
 
-That single rule is what makes the app safe to leave running.
+## Quick start
+
+```bash
+cd server
+go build -o gamesave ./cmd/gamesave
+./gamesave user add alice
+./gamesave key create --user alice --label laptop   # shown once
+./gamesave serve --config config.yaml
+```
+
+The server generates its own certificate authority at the first start and
+prints the fingerprint. The client pins that fingerprint and trusts nothing
+else, so a server whose authority changed simply stops working.
+
+To run the companion app, open it, paste the URL, the fingerprint and an API
+key, and add your first game. Everything else happens on its own.
+
+---
+
+## Read more
+
+| Document | What it holds |
+|---|---|
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | the two halves, the data model, the layout on disk, the configuration |
+| [docs/CLIENT.md](docs/CLIENT.md) | the interface, the cards, the panels, the session, the icons |
+| [docs/PROTOCOL.md](docs/PROTOCOL.md) | the API and how the synchronisation decides what to transfer |
+| [docs/DEPLOY.md](docs/DEPLOY.md) | systemd, Docker, backups, how to reach it from outside |
+| [SECURITY.md](SECURITY.md) | what the program is built to withstand, and what it is not |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | the rules for who wants to help |
+| [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) | how to behave with each other |
+
+The API is described in [spec/openapi.yaml](spec/openapi.yaml).
 
 ---
 
@@ -61,241 +80,16 @@ That single rule is what makes the app safe to leave running.
 
 | Component | State |
 |---|---|
-| `server/` — Go server, API, CLI, TLS, Docker | **done** |
-| `desktop/` — Rust companion app (egui) | **done** |
+| `server/` — Go server, API, CLI, TLS, Docker | done |
+| `desktop/` — Rust companion app (egui) | done |
 | E2E encryption | planned, opt-in per user |
 | Chunk level delta upload | planned |
+| Session watcher on Windows | planned, Linux only today |
 
 ---
 
-## Architecture
-
-```
-┌───────────────────────┐        HTTPS, pinned self signed certificate
-│  Desktop companion    │◄──────────────────────────────────────────┐
-│  Rust + egui          │                                           │
-│                       │   ┌─────────────────────────────────────┐ │
-│  ┌──────────────────┐ │   │       Game Save server (Go)         │ │
-│  │ session watcher  │ │   │                                     │ │
-│  │ read only scanner│ │   │  ┌───────────┐  ┌───────────────┐   │ │
-│  │ sync engine      │ │   │  │  REST API │  │  sync engine  │   │ │
-│  │ egui library UI  │ │   │  └─────┬─────┘  └───────┬───────┘   │ │
-│  └──────────────────┘ │   │        │                │           │ │
-└───────────────────────┘   │  ┌─────▼─────┐   ┌──────▼───────┐   ├─┘
-                            │  │  SQLite   │   │  blob store  │   │
-                            │  │ (meta)    │   │  (CAS disk)  │   │
-                            │  └───────────┘   └──────────────┘   │
-                            └─────────────────────────────────────┘
-```
-
-The client owns the filesystem, the server owns the bytes. The client never
-downloads a whole archive: it diffs manifests and transfers only what changed.
-
----
-
-## Quick start: the server
-
-```bash
-cd server
-go build -o gamesave ./cmd/gamesave
-
-# create an account
-./gamesave user add alice
-
-# issue an API key (shown once)
-./gamesave key create --user alice --label laptop
-
-# run it
-./gamesave serve --config config.yaml
-```
-
-On first start the server generates a local certificate authority and a server
-certificate signed by it, and prints the fingerprint of the authority. Copy
-that fingerprint, the client needs it: the client trusts nothing else, so a
-server whose authority changed simply stops working instead of being silently
-accepted.
-
-With Docker:
-
-```bash
-cd server
-docker compose up -d
-```
-
-Configuration lives in `server/config.example.yaml`; every value can be
-overridden with a `GAMESAVE_*` environment variable.
-
----
-
-## Quick start: the companion app
-
-The companion talks to the server over HTTPS and pins the server authority.
-On first run it asks for:
-
-- the server URL, e.g. `https://192.168.1.10:8443`
-- the authority fingerprint printed by the server
-- an API key
-
-Then add a game: give it the executable and the save folder. Everything else
-happens on its own.
-
-The URL must be covered by the subject alternative names of the server
-certificate. The server is told which ones to use with `server.tls.san` in the
-configuration file; add the address you connect to, for example the IP of the
-machine or its hostname.
-
-The client keeps its configuration and its state in the usual places:
-`~/.config/gamesave` and `~/.local/share/gamesave` on Linux,
-`%APPDATA%\gamesave` and `%LOCALAPPDATA%\gamesave` on Windows. The
-`GAMESAVE_HOME` environment variable overrides both, which is handy for a
-portable installation.
-
----
-
-## Repository layout
-
-```
-.
-├── server/            Go server
-│   ├── cmd/gamesave/       CLI entry point
-│   └── internal/
-│       ├── api/            HTTP layer, auth middleware, handlers
-│       ├── auth/           API key issuing and hashing
-│       ├── blobstore/      content addressed store on disk
-│       ├── config/         YAML + environment configuration
-│       ├── db/             SQLite schema, migrations, queries
-│       └── tlscert/        the local certificate authority
-├── desktop/           Rust companion app (egui)
-│   ├── assets/fonts/       Fira Code, under the Open Font License
-│   └── src/
-│       ├── api.rs          HTTP client, certificate pinning
-│       ├── app.rs          the interface: the library of games
-│       ├── icons.rs        the icon of the game, from its executable
-│       ├── overlay.rs      the panels that come in the middle of the screen
-│       ├── scanner.rs      the read only walk of the save folder
-│       ├── session.rs      is the game running?
-│       ├── sync.rs         the synchronisation engine
-│       ├── theme.rs        fonts, colours and spacing
-│       ├── widgets.rs      the buttons and the boxes
-│       └── worker.rs       the background worker
-├── spec/openapi.yaml  the API, described
-├── docs/
-│   ├── PROTOCOL.md    how the synchronisation works
-│   └── DEPLOY.md      how to run the server
-└── scripts/e2e.ps1    the end to end test, with a throwaway server
-```
-
----
-
-## The interface
-
-The library is a grid of cards, one for each game, and the last card of the
-grid is the one that adds a game. Each card carries the icon of the game, the
-time of the last synchronisation, and the three things one can do with a
-game: synchronise it, change it, or remove it.
-
-The panels that add a game and that hold the settings come in the middle of
-the screen with a quick fade, and are closed with the cross in their corner.
-
-The font is Fira Code, under the Open Font License, and it travels with the
-program: the interface looks the same on every machine.
-
----
-
-## Contributing
-
-The rules are short and they are the ones that keep the project healthy: one
-problem per issue, one fix per pull request, and say so when an AI agent
-helped. They are all in [CONTRIBUTING.md](CONTRIBUTING.md).
-
-The behaviour expected of everybody is in
-[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
-
-If you find a vulnerability, read [SECURITY.md](SECURITY.md) before opening
-anything public: it says how to report it privately, and it says out loud what
-this program is built to withstand and what it is not.
-
----
-
-## Multi user and API keys
-
-The server supports several accounts. Every account has its own games, its own
-files and its own keys, and nothing crosses over between accounts.
-
-```
-gamesave user add alice
-gamesave key create --user alice --label laptop
-gamesave key list --user alice
-gamesave key revoke --user alice --id 3
-```
-
-Keys are stored as a SHA-256 hash. The plaintext is printed once, at creation
-time, and cannot be recovered. Revoking a key takes effect immediately.
-
----
-
-## How the sync works
-
-Every game is a namespace on the server holding a manifest: the current state
-of each file, with its size, digest and modification time.
-
-At the end of a session the client walks the save folder **read only**:
-
-1. files whose size and modification time are unchanged since the last scan are
-   skipped, their digest is reused. This is what keeps the scan cheap;
-2. the remaining files are hashed;
-3. the result is compared with the previous state and with the server manifest,
-   which gives the three cases:
-   - changed locally, unchanged on the server → **upload**;
-   - unchanged locally, changed on the server → **download** into the mirror;
-   - changed on both sides → **conflict**, you choose;
-4. the local state file is rewritten atomically.
-
-The server refuses a blind overwrite: an upload carries the digest the client
-believes the server holds, and the server answers `409 Conflict` when it does
-not match. Nothing is ever overwritten without you knowing.
-
----
-
-## Configuration reference
-
-| Variable | Meaning |
-|---|---|
-| `GAMESAVE_LISTEN` | listen address, default `:8443` |
-| `GAMESAVE_DATA_DIR` | directory holding the database, blobs and certificates |
-| `GAMESAVE_TLS_MODE` | `selfsigned`, `files` or `off` |
-| `GAMESAVE_CERT_FILE` / `GAMESAVE_KEY_FILE` | certificate pair when the mode is `files` |
-| `GAMESAVE_SANS` | comma separated subject alternative names |
-| `GAMESAVE_MAX_FILE_SIZE` | largest accepted file, in bytes |
-
----
-
-## Development
-
-```bash
-cd server && go test ./... && go vet ./...
-cd desktop && cargo check && cargo test
-```
-
-The end to end test runs the real client against a real server, both of them
-started on the spot:
-
-```powershell
-./scripts/e2e.ps1
-```
-
-The Go server cross compiles to Linux without a C toolchain, because the SQLite
-driver is pure Go:
-
-```bash
-cd server
-GOOS=linux GOARCH=amd64 go build -o gamesave-linux-amd64 ./cmd/gamesave
-GOOS=linux GOARCH=arm64 go build -o gamesave-linux-arm64 ./cmd/gamesave
-```
-
----
-
-## License
+## Licence
 
 Game Save is released under the GNU General Public License v3.0. See
-[LICENSE](LICENSE) for the full text.
+[LICENSE](LICENSE) for the full text. The interface font is Fira Code, under
+the SIL Open Font License, which is compatible with the GPL.

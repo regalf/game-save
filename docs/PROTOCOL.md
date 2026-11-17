@@ -3,6 +3,10 @@
 This document describes how a client and a server agree on what to upload and
 what to download. It is the contract the two implementations share.
 
+The API is described in [spec/openapi.yaml](../spec/openapi.yaml). This
+document describes the parts that matter for the synchronisation: the states,
+the diff, the locking and the errors.
+
 ---
 
 ## 1. The unit of work
@@ -206,9 +210,60 @@ disabled account and a key that never existed are the same thing: not found.
 Keys belong to an account. Every row of the database is scoped by the
 account, so two accounts never see each other, not even by mistake.
 
+The key is printed once, at creation time:
+
+```bash
+gamesave key create --user alice --label laptop
+gamesave key revoke --user alice --id 3
+```
+
 ---
 
-## 11. What the client never does
+## 11. The API
+
+The whole surface, with the parameters and the answers, is in
+[spec/openapi.yaml](../spec/openapi.yaml). The endpoints, in short:
+
+| Method | Path | What it does |
+|---|---|---|
+| `GET` | `/healthz` | liveness, no authentication |
+| `GET` | `/v1/cert` | the trust anchor, no authentication |
+| `GET` | `/v1/me` | the account and the key in use |
+| `GET` | `/v1/games` | the games of the account |
+| `POST` | `/v1/games` | create a namespace |
+| `GET` / `PATCH` / `DELETE` | `/v1/games/{id}` | read, rename, delete |
+| `GET` | `/v1/games/{id}/manifest` | the baseline the client diffs against |
+| `GET` | `/v1/games/{id}/files` | the file list |
+| `GET` | `/v1/games/{id}/file?path=` | download a file |
+| `PUT` | `/v1/games/{id}/file?path=` | upload a new version |
+| `DELETE` | `/v1/games/{id}/file?path=` | remove a file |
+| `GET` | `/v1/games/{id}/file/versions` | the history of one file |
+
+Every answer carries a structured error:
+
+```json
+{"error": {"code": "conflict", "message": "the file changed on the server…"}}
+```
+
+---
+
+## 12. The errors, and what the client does with them
+
+| Code | Meaning | The client |
+|---|---|---|
+| `401` | the key is unknown, revoked, or the account is disabled | tells the user, offers to reconnect |
+| `404` | the game or the file is not there, or belongs to another account | treats it as absent, and offers to create it |
+| `409` | the optimistic lock did not match | fetches the manifest again and asks the user |
+| `413` | the file is over the configured limit | does not retry, says so |
+| `5xx` | the server failed | logs it, tries again at the next session |
+
+The connection itself failing is not an error to hide: the state of the
+connection is in the bar at the bottom, and the **Reconnect** button appears
+only when it is down.
+
+---
+
+## 13. What the client never does
 
 - It never writes inside the save folder of a game, except when the user
   explicitly asks for a cloud version to be restored.
