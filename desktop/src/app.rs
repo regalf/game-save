@@ -730,14 +730,10 @@ impl GameSaveApp {
         }
 
         ui.add_space(12.0);
-        ui.horizontal(|ui| {
-            if widgets::button(ui, "Save") && self.add_game() {
-                self.show_add = false;
-            }
-            if widgets::button(ui, "Close") {
-                self.show_add = false;
-            }
-        });
+        let width = ui.available_width();
+        if widgets::sized_button(ui, "Save", width) && self.add_game() {
+            self.show_add = false;
+        }
     }
     /// Register a new game in the library, or change one that is already there.
     ///

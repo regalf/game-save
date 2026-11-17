@@ -5,7 +5,7 @@
 
 use std::time::Instant;
 
-use egui::{Color32, Context, Frame, Id, Modal, Sense, Stroke, Ui, Vec2};
+use egui::{Color32, Context, Frame, Id, Modal, Sense, Stroke, StrokeKind, Ui, Vec2};
 
 use crate::theme;
 
@@ -92,7 +92,13 @@ impl Overlay {
     }
 }
 
+/// The margin inside a panel.
+pub const PANEL_MARGIN: f32 = 18.0;
+
 /// The header of a panel: the title on the left, the close button on the right.
+///
+/// A vertical line divides the title from the rest, like in the bar on top,
+/// and the line under the header reaches the edges of the panel.
 pub fn header(ui: &mut Ui, title: &str) -> bool {
     let mut close = false;
     ui.horizontal(|ui| {
@@ -101,11 +107,22 @@ pub fn header(ui: &mut Ui, title: &str) -> bool {
                 .color(theme::palette::dark::TEXT)
                 .size(theme::size::PANEL_TITLE),
         );
+        ui.separator();
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             close = close_button(ui);
         });
     });
-    ui.separator();
+
+    // The line under the header goes from one edge of the panel to the other.
+    let area = ui.max_rect();
+    let y = ui.cursor().min.y;
+    ui.painter().hline(
+        egui::Rangef::new(area.left() - PANEL_MARGIN, area.right() + PANEL_MARGIN),
+        y,
+        Stroke::new(1.0, theme::palette::dark::BORDER),
+    );
+    ui.add_space(8.0);
+
     close
 }
 
@@ -114,15 +131,24 @@ pub fn header(ui: &mut Ui, title: &str) -> bool {
 /// The cross is drawn and not written, so it looks the same whatever the font
 /// of the system has in it.
 pub fn close_button(ui: &mut Ui) -> bool {
-    let (rect, response) = ui.allocate_exact_size(Vec2::new(20.0, 20.0), Sense::click());
+    let (rect, response) = ui.allocate_exact_size(Vec2::new(22.0, 22.0), Sense::click());
     if ui.is_rect_visible(rect) {
+        // The box around the cross.
+        ui.painter().rect(
+            rect,
+            0.0,
+            theme::palette::dark::SURFACE,
+            Stroke::new(1.0, theme::palette::dark::BORDER),
+            StrokeKind::Middle,
+        );
+
         let colour = if response.hovered() {
             theme::palette::dark::TEXT
         } else {
-            theme::palette::dark::TEXT_MUTED
+            theme::palette::dark::TEXT_FAINT
         };
         let stroke = Stroke::new(1.2, colour);
-        let inner = rect.shrink(5.0);
+        let inner = rect.shrink(6.0);
         let painter = ui.painter();
         painter.line_segment([inner.left_top(), inner.right_bottom()], stroke);
         painter.line_segment([inner.right_top(), inner.left_bottom()], stroke);

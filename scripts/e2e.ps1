@@ -11,13 +11,24 @@
     ./scripts/e2e.ps1
 #>
 param(
-    [int]$Port = 18444,
+    [int]$Port = 0,
     [switch]$Keep
 )
 
 $ErrorActionPreference = "Stop"
 
 $root = Split-Path -Parent $PSScriptRoot
+
+# A free port of its own: another server may well be listening on the usual
+# one, and then the test would talk to that one instead.
+if ($Port -eq 0) {
+    $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 0)
+    $listener.Start()
+    $Port = ([System.Net.IPEndPoint]$listener.LocalEndpoint).Port
+    $listener.Stop()
+    Start-Sleep -Milliseconds 200
+}
+
 $work = Join-Path ([System.IO.Path]::GetTempPath()) ("gamesave-e2e-" + [guid]::NewGuid().ToString("N").Substring(0, 8))
 New-Item -ItemType Directory -Force -Path $work | Out-Null
 
@@ -94,17 +105,28 @@ $server = Start-Process -FilePath $exe `
 try {
     # Wait for the server to answer.
     $ready = $false
-    for ($i = 0; $i -lt 40; $i++) {
+    for ($i = 0; $i -lt 60; $i++) {
         Start-Sleep -Milliseconds 250
         $null = & curl.exe -sk "https://127.0.0.1:$Port/healthz" 2>$null
         if ($LASTEXITCODE -eq 0) { $ready = $true; break }
     }
-    if (-not $ready) { throw "the server did not start, see $work\server.err" }
+    if (-not $ready) {
+        # The server may have found the port taken: say so, instead of letting
+        # the test talk to somebody else's server.
+        Get-Content (Join-Path $work "server.err") -ErrorAction SilentlyContinue | Select-Object -Last 5
+        throw "the server did not start on port $Port"
+    }
 
     $fingerprint = [regex]::Match(
         (Get-Content (Join-Path $work "certs\fingerprint.txt") -Raw),
         "authority\s*:\s*([0-9A-Fa-f:]+)").Groups[1].Value
     if (-not $fingerprint) { throw "could not read the fingerprint" }
+
+    # The server that answers has to be the one that was started here.
+    $served = & curl.exe -sk "https://127.0.0.1:$Port/v1/cert" 2>$null | ConvertFrom-Json
+    if ($served.fingerprint -ne $fingerprint) {
+        throw "another server is answering on port $Port"
+    }
 
     Write-Host "==> running the end to end test" -ForegroundColor Cyan
     $env:GAMESAVE_E2E_URL = "https://127.0.0.1:$Port"

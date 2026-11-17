@@ -165,6 +165,9 @@ pub fn apply(ctx: &Context, dark: bool) {
         visuals.widgets.noninteractive.bg_fill = palette::dark::SURFACE;
         visuals.widgets.noninteractive.weak_bg_fill = palette::dark::SURFACE;
         visuals.widgets.noninteractive.fg_stroke = egui::Stroke::new(1.0, palette::dark::TEXT);
+        // The line around the fields is always there.
+        visuals.widgets.noninteractive.bg_stroke = egui::Stroke::new(1.0, palette::dark::BORDER);
+        visuals.widgets.inactive.bg_stroke = egui::Stroke::new(1.0, palette::dark::BORDER);
         // A button at rest: the same colour as the window, with a line around.
         visuals.widgets.inactive.bg_fill = palette::dark::SURFACE;
         visuals.widgets.inactive.weak_bg_fill = palette::dark::SURFACE;
@@ -189,6 +192,9 @@ pub fn apply(ctx: &Context, dark: bool) {
         visuals.widgets.noninteractive.bg_fill = palette::light::SURFACE;
         visuals.widgets.noninteractive.weak_bg_fill = palette::light::SURFACE;
         visuals.widgets.noninteractive.fg_stroke = egui::Stroke::new(1.0, palette::light::TEXT);
+        // The line around the fields is always there.
+        visuals.widgets.noninteractive.bg_stroke = egui::Stroke::new(1.0, palette::light::BORDER);
+        visuals.widgets.inactive.bg_stroke = egui::Stroke::new(1.0, palette::light::BORDER);
         visuals.widgets.inactive.bg_fill = palette::light::SURFACE;
         visuals.widgets.inactive.weak_bg_fill = palette::light::SURFACE;
         visuals.widgets.inactive.fg_stroke = egui::Stroke::new(1.0, palette::light::TEXT);
@@ -203,13 +209,14 @@ pub fn apply(ctx: &Context, dark: bool) {
         visuals.widgets.open.fg_stroke = egui::Stroke::new(1.0, palette::light::TEXT);
     }
 
-    visuals.window_corner_radius = 8u8.into();
-    visuals.menu_corner_radius = 8u8.into();
-    visuals.widgets.noninteractive.corner_radius = 4u8.into();
-    visuals.widgets.inactive.corner_radius = 4u8.into();
-    visuals.widgets.hovered.corner_radius = 4u8.into();
-    visuals.widgets.active.corner_radius = 4u8.into();
-    visuals.widgets.open.corner_radius = 4u8.into();
+    // Nothing is rounded: the interface is made of straight lines.
+    visuals.window_corner_radius = 0u8.into();
+    visuals.menu_corner_radius = 0u8.into();
+    visuals.widgets.noninteractive.corner_radius = 0u8.into();
+    visuals.widgets.inactive.corner_radius = 0u8.into();
+    visuals.widgets.hovered.corner_radius = 0u8.into();
+    visuals.widgets.active.corner_radius = 0u8.into();
+    visuals.widgets.open.corner_radius = 0u8.into();
 
     ctx.set_visuals_of(theme, visuals);
 
