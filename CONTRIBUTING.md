@@ -146,7 +146,15 @@ also linked by GitHub on every issue and pull request.
 
 ---
 
-## 8. Questions
+## 8. Security
+
+If the thing you found is a vulnerability, **do not open an issue**: read
+[SECURITY.md](SECURITY.md) first. It says how to report it privately, what the
+program is built to withstand, and why it must not be exposed to the internet.
+
+---
+
+## 9. Questions
 
 If something is unclear, open an issue. If the answer helps more than one
 person, put it in the documentation afterwards.

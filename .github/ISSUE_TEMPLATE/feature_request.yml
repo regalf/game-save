@@ -1,0 +1,55 @@
+name: Feature request
+description: A thing the program should be able to do
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **One issue, one problem.** A request for two things becomes two issues, otherwise the first one is forgotten while the second is discussed. See [CONTRIBUTING.md](../blob/main/CONTRIBUTING.md).
+
+  - type: textarea
+    id: the-thing
+    attributes:
+      label: The thing
+      description: What the program should do.
+      placeholder: Sync a game while it is running, not only when it stops.
+    validations:
+      required: true
+
+  - type: textarea
+    id: the-problem
+    attributes:
+      label: The problem it solves
+      description: What today does not work. Without this the request is a preference, and preferences get asked differently.
+      placeholder: Today the saves changed in the middle of the session are not in the cloud, and a crash loses them.
+    validations:
+      required: true
+
+  - type: textarea
+    id: the-game
+    attributes:
+      label: The games it is about
+      description: If it concerns games with no cloud service of their own, say which ones. That is who this project is for.
+      placeholder: Games from GOG and Epic, whose saves are only in a folder on disk.
+
+  - type: textarea
+    id: not
+    attributes:
+      label: What it must not become
+      description: Useful to keep the request honest. If the thing would make the app bigger, more complex or less private, say it.
+      placeholder: It must not need a server on the internet.
+
+  - type: textarea
+    id: ai
+    attributes:
+      label: Did an AI agent help?
+      description: |
+        If an AI agent helped you write the request, put its line at the end, in
+        this exact form:
+
+        ```
+        <!-- ai: agent=claude-code model=claude-sonnet-4.5 task=one line -->
+        ```
+
+        If no agent helped, leave it empty. A missing line is the answer.

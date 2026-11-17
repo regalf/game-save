@@ -211,6 +211,10 @@ helped. They are all in [CONTRIBUTING.md](CONTRIBUTING.md).
 The behaviour expected of everybody is in
 [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
 
+If you find a vulnerability, read [SECURITY.md](SECURITY.md) before opening
+anything public: it says how to report it privately, and it says out loud what
+this program is built to withstand and what it is not.
+
 ---
 
 ## Multi user and API keys

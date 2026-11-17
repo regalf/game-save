@@ -1,0 +1,65 @@
+name: Bug report
+description: A bug, a crash, or something that does not do what it should
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. **One issue describes one problem**: if you found two, open two issues and link them to each other. The reasons are in [CONTRIBUTING.md](../blob/main/CONTRIBUTING.md).
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What did you expect and what happened instead.
+      placeholder: The client uploads the file even when it did not change.
+    validations:
+      required: true
+
+  - type: textarea
+    id: to-reproduce
+    attributes:
+      label: How to reproduce it
+      description: The exact steps, from the beginning. A step that is missing is a step the maintainer has to guess.
+      placeholder: |
+        1. Add a game
+        2. Close the game
+        3. Watch the log panel
+    validations:
+      required: true
+
+  - type: textarea
+    id: versions
+    attributes:
+      label: Versions and system
+      description: The version of Game Save and the operating system. The client writes its version in the log panel, the server prints it at startup.
+      placeholder: "client 0.1.0 on Linux, server 0.1.0 on the same machine"
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: The log
+      description: |
+        The relevant part of the log. In release builds on Windows the client writes
+        `gamesave.log` next to its data, the server writes to its standard error.
+
+        ```
+        paste here
+        ```
+
+  - type: textarea
+    id: ai
+    attributes:
+      label: Did an AI agent help?
+      description: |
+        If an AI agent helped you write the report or the code, put its line at the
+        end, in this exact form:
+
+        ```
+        <!-- ai: agent=claude-code model=claude-sonnet-4.5 task=one line -->
+        ```
+
+        If no agent helped, leave it empty. A missing line is the answer.
