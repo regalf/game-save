@@ -93,6 +93,9 @@ pub struct GameSaveApp {
     last_poll: Instant,
     last_attempt: Instant,
     next_id: u64,
+    /// Set when the user asked to quit from the tray: the window is then
+    /// really allowed to close.
+    quitting: bool,
     tray: Option<Tray>,
 }
 
@@ -128,6 +131,7 @@ impl GameSaveApp {
             last_poll: Instant::now(),
             last_attempt: Instant::now(),
             next_id: 1,
+            quitting: false,
             tray: Tray::new(),
         };
         app.push_log("Game Save started".into(), false);
@@ -228,9 +232,12 @@ impl GameSaveApp {
             match event {
                 TrayEvent::Sync => self.sync_all(),
                 TrayEvent::Show => {
+                    ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
                     ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
                 }
                 TrayEvent::Quit => {
+                    // The only close that really quits is the one asked here.
+                    self.quitting = true;
                     ctx.send_viewport_cmd(egui::ViewportCommand::Close);
                 }
             }
@@ -862,15 +869,32 @@ impl GameSaveApp {
 }
 
 impl eframe::App for GameSaveApp {
+    /// The background tick.
+    ///
+    /// eframe calls this both when the window is shown and when it is hidden,
+    /// so the session watcher and the worker keep running when the app sits in
+    /// the tray.
+    fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        self.drain_events(ctx);
+        self.drain_tray(ctx);
+        self.poll_sessions(ctx);
+
+        // The X button asks to close the window. Instead of quitting, the app
+        // hides into the tray and keeps synchronising. The only close that
+        // really quits is the one asked from the tray menu.
+        if ctx.input(|i| i.viewport().close_requested()) && !self.quitting {
+            ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
+            ctx.send_viewport_cmd(egui::ViewportCommand::Visible(false));
+            crate::notify::hidden_to_tray();
+            self.push_log("hidden in the tray, Game Save keeps running".into(), false);
+        }
+    }
+
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         // egui only draws when something asks it to. The interface has to
         // keep waking up, or the events coming from the worker would sit
         // unread until the user happens to click something.
         ui.ctx().request_repaint_after(Duration::from_millis(250));
-
-        self.drain_events(ui.ctx());
-        self.drain_tray(ui.ctx());
-        self.poll_sessions(ui.ctx());
 
         let ctx = ui.ctx().clone();
 

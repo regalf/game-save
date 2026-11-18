@@ -84,7 +84,7 @@ The API is described in [spec/openapi.yaml](spec/openapi.yaml).
 | `desktop/` — Rust companion app (egui) | done |
 | E2E encryption | planned, opt-in per user |
 | Chunk level delta upload | planned |
-| Session watcher on Windows | planned, Linux only today |
+| Session watcher on Windows | done, through the Win32 process enumeration |
 
 ---
 

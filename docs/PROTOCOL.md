@@ -169,8 +169,10 @@ A crash, a normal exit and a kill are the same event, because the signal is
 the process disappearing, not its exit status.
 
 On Linux the process is found by reading `/proc/<pid>/exe` and comparing the
-device and the inode with the registered executable, which survives a
-different spelling of the path, spaces in the path and launcher scripts.
+device and the inode with the registered executable. On Windows the processes
+are enumerated and the full path of their image is compared, canonicalised and
+lower cased. Both survive a different spelling of the path, spaces in the path
+and the short name of a component.
 
 When the session ends the client scans, diffs and applies the plan above.
 

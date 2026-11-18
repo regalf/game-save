@@ -47,6 +47,18 @@ auto-launch = "0.6"
 icoextract_rs = "0.1.2"
 oxideav-ico = "0.0.8"
 
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.62", features = [
+    "Win32_Foundation",
+    "Win32_System_Diagnostics_ToolHelp",
+    "Win32_System_Threading",
+    "Win32_System_Registry",
+    "Win32_Security",
+    "Win32_UI_Shell",
+    "Data_Xml_Dom",
+    "UI_Notifications",
+] }
+
 [dev-dependencies]
 tempfile = "3"
 

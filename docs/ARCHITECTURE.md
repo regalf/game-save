@@ -151,6 +151,7 @@ are:
 | `api` | the HTTP client, with the certificate pinning |
 | `config` | the configuration, the library, the state, the paths |
 | `icons` | the icon of a game, read from its executable |
+| `notify` | the notification that says the app is still running |
 | `overlay` | the panels that come in the middle of the screen |
 | `scanner` | the **read only** walk of the save folder, with hashing |
 | `session` | is the game running? |
@@ -190,9 +191,10 @@ crash, a normal exit and a kill are the same event, because the signal is the
 process disappearing, not its exit status.
 
 On Linux the process is found by comparing the device and the inode of
-`/proc/<pid>/exe` with the registered executable, which is robust against a
-different spelling of the path, spaces in the path and launcher scripts.
-Windows support is planned.
+`/proc/<pid>/exe` with the registered executable. On Windows the processes are
+enumerated and the full path of their image is compared, canonicalised and
+lower cased. Both survive a different spelling of the path, spaces in the path
+and the short name of a component.
 
 When the session ends the app scans, diffs and applies the plan. The scan is
 described in [PROTOCOL.md](PROTOCOL.md).

@@ -150,8 +150,10 @@ when it goes away.
 the process disappearing, not its exit status. Reading the saves halfway
 through a write would upload a truncated file.
 
-**Cost:** the detection is platform specific. Today it is Linux, through the
-device and the inode of `/proc/<pid>/exe`. Windows is planned.
+**Cost:** the detection is platform specific. On Linux it compares the device
+and the inode of `/proc/<pid>/exe`; on Windows it enumerates the processes and
+compares the canonical path of their image. Both survive a different spelling
+of the path.
 
 ### Sync at the end of the session, not while it runs
 
@@ -185,6 +187,19 @@ loser is archived.
 get lost silently. Here the user knows there was a divergence and chooses.
 
 **Cost:** the sync stops and waits. For a small number of files, that is fine.
+
+### Closing the window hides it into the tray
+
+**Decision:** the **X** of the window does not quit. It hides the window into
+the tray and the app keeps synchronising; on Windows a notification says that
+it is still running. Only **Quit** in the tray menu really closes the program.
+
+**Why:** the app is made to run all the time, and a user who closes the window
+usually means "I am done looking at it", not "stop syncing".
+
+**Cost:** quitting takes one more step, through the tray menu. The
+notification needs an app user model id, which the program registers for itself
+in the per-user part of the registry.
 
 ---
 
@@ -240,7 +255,6 @@ rest: it is read, understood, and answered for.
 |---|---|---|
 | **End to end encryption** | the server deduplicates by digest, and encryption makes every file unique; the recovery of a lost passphrase is unsolved | the deduplication is lost, and a recovery key is designed |
 | **Chunk level delta upload** | whole files are enough for game saves, and the first versions of a save are the ones that grow | a chunker, a chunk store, a second protocol |
-| **Windows session watcher** | the Linux detection is through `/proc`, and the Windows one needs the Win32 process enumeration | a platform module and its tests |
 | **Automatic discovery of the save folder** | the engines put them in different places, and a wrong guess is worse than a question | heuristics per engine, and a confirmation |
 | **A daemon, without the interface** | the tray is enough for a household; a headless machine can run the interface | a second entry point, a second configuration |
 
@@ -259,14 +273,12 @@ rest: it is read, understood, and answered for.
 | M6 | packaging: AppImage, deb, systemd user unit, Windows build | planned |
 | M7 | chunk level delta upload for large files | planned |
 | M8 | end to end encryption, opt-in per user | planned |
-| M9 | session watcher on Windows | planned |
+| M9 | session watcher on Windows | done |
 
 ---
 
 ## 6. Open items
 
-- The client is Linux-first. On Windows the interface works but the sync does
-  not start on its own, because the session watcher is Linux only.
 - The save folder is given by hand. Automatic discovery is planned.
 - The API has no rate limiting and no account lockout: see
   [SECURITY.md](SECURITY.md) for why that is acceptable and what it is not.

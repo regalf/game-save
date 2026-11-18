@@ -197,6 +197,10 @@ card shows a placeholder then.
 The icon sits in the tray with the state of the connection. The menu offers
 **Sync now**, **Show Game Save** and **Quit**.
 
+Closing the window with the **X** does not quit: the window hides into the
+tray, the app keeps synchronising, and on Windows a notification says that it
+is still running. Only **Quit** in the tray menu really closes the program.
+
 ---
 
 ## 11. Starting with the session
