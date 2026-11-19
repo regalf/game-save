@@ -64,9 +64,11 @@ func usage() {
 
 Usage:
   gamesave serve [--config <file>]     start the server
-  gamesave user add <username>        create an account
+  gamesave user add <username> [--display-name <text>] [--quota 5GB]
   gamesave user list                   list accounts
   gamesave user disable <username>     disable an account
+  gamesave user enable <username>      enable an account
+  gamesave user quota <username> [size]   show or set the storage quota
   gamesave key create --user <name> [--label <text>]
   gamesave key list --user <name>
   gamesave key revoke --user <name> --id <id>
@@ -110,6 +112,67 @@ func splitCommand(args []string) (string, flagSet, []string, error) {
 		return "", nil, nil, err
 	}
 	return args[0], flags, rest, nil
+}
+
+// parseBytes parses a size such as "5GB", "512MB" or "1024" into bytes.
+//
+// The units are binary, like the rest of the program: KB is 1024 bytes, MB is
+// 1024^2, GB is 1024^3, TB is 1024^4. Both "GB" and "GiB" are accepted.
+func parseBytes(text string) (int64, error) {
+	text = strings.ToUpper(strings.TrimSpace(text))
+	if text == "" {
+		return 0, errors.New("empty size")
+	}
+	units := []struct {
+		suffix string
+		mult   int64
+	}{
+		{"TIB", 1 << 40}, {"GIB", 1 << 30}, {"MIB", 1 << 20}, {"KIB", 1 << 10},
+		{"TB", 1 << 40}, {"GB", 1 << 30}, {"MB", 1 << 20}, {"KB", 1 << 10},
+		{"B", 1},
+	}
+	for _, unit := range units {
+		if !strings.HasSuffix(text, unit.suffix) {
+			continue
+		}
+		number := strings.TrimSpace(strings.TrimSuffix(text, unit.suffix))
+		value, err := strconv.ParseFloat(number, 64)
+		if err != nil {
+			return 0, fmt.Errorf("invalid size %q", text)
+		}
+		return int64(value * float64(unit.mult)), nil
+	}
+	value, err := strconv.ParseInt(text, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("invalid size %q", text)
+	}
+	return value, nil
+}
+
+// formatBytes renders a byte count with a binary unit.
+func formatBytes(bytes int64) string {
+	if bytes <= 0 {
+		return "0 B"
+	}
+	units := []string{"B", "KB", "MB", "GB", "TB", "PB"}
+	value := float64(bytes)
+	unit := 0
+	for value >= 1024 && unit < len(units)-1 {
+		value /= 1024
+		unit++
+	}
+	if unit == 0 {
+		return fmt.Sprintf("%d B", bytes)
+	}
+	return fmt.Sprintf("%.1f %s", value, units[unit])
+}
+
+// formatQuota renders a storage quota, with "unlimited" for zero.
+func formatQuota(quota int64) string {
+	if quota <= 0 {
+		return "unlimited"
+	}
+	return formatBytes(quota)
 }
 
 // openDB opens the database described by the configuration.
@@ -361,11 +424,20 @@ func cmdUser(args []string) error {
 	switch sub {
 	case "add":
 		if len(rest) == 0 {
-			return errors.New("usage: gamesave user add <username> [--display-name <text>]")
+			return errors.New("usage: gamesave user add <username> [--display-name <text>] [--quota 5GB]")
 		}
 		u, err := database.CreateUser(ctx, rest[0], flags["display-name"])
 		if err != nil {
 			return err
+		}
+		if flags["quota"] != "" {
+			quota, err := parseBytes(flags["quota"])
+			if err != nil {
+				return err
+			}
+			if err := database.SetUserQuota(ctx, u.ID, quota); err != nil {
+				return err
+			}
 		}
 		fmt.Printf("user %q created (id %d)\n", u.Username, u.ID)
 		return nil
@@ -378,13 +450,13 @@ func cmdUser(args []string) error {
 			fmt.Println("no users yet")
 			return nil
 		}
-		fmt.Printf("%-6s %-20s %-10s %s\n", "ID", "USERNAME", "STATUS", "CREATED")
+		fmt.Printf("%-6s %-20s %-10s %-12s %s\n", "ID", "USERNAME", "STATUS", "QUOTA", "CREATED")
 		for _, u := range users {
 			status := "active"
 			if u.Disabled {
 				status = "disabled"
 			}
-			fmt.Printf("%-6d %-20s %-10s %s\n", u.ID, u.Username, status, u.CreatedAt)
+			fmt.Printf("%-6d %-20s %-10s %-12s %s\n", u.ID, u.Username, status, formatQuota(u.Quota), u.CreatedAt)
 		}
 		return nil
 	case "disable":
@@ -412,6 +484,27 @@ func cmdUser(args []string) error {
 			return err
 		}
 		fmt.Printf("user %q enabled\n", u.Username)
+		return nil
+	case "quota":
+		if len(rest) == 0 {
+			return errors.New("usage: gamesave user quota <username> [size]")
+		}
+		u, err := database.UserByUsername(ctx, rest[0])
+		if err != nil {
+			return err
+		}
+		if len(rest) == 1 {
+			fmt.Printf("user %q: quota %s (%d bytes)\n", u.Username, formatQuota(u.Quota), u.Quota)
+			return nil
+		}
+		quota, err := parseBytes(rest[1])
+		if err != nil {
+			return err
+		}
+		if err := database.SetUserQuota(ctx, u.ID, quota); err != nil {
+			return err
+		}
+		fmt.Printf("user %q: quota set to %s (%d bytes)\n", u.Username, formatQuota(quota), quota)
 		return nil
 	default:
 		return fmt.Errorf("unknown user subcommand %q", sub)

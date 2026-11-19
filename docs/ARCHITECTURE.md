@@ -56,7 +56,8 @@ only what changed.
 ### Data model
 
 ```
-users(id, username, display_name, disabled, created_at)
+users(id, username, display_name, disabled, created_at, quota)
+    quota is the storage the account may use, in bytes; zero means no limit
 
 api_keys(id, user_id, label, key_prefix, key_hash, created_at, last_used_at, revoked_at)
     key_hash is the SHA-256 of the key; the plaintext is never stored
@@ -229,7 +230,7 @@ and the two that destroy something turn red.
 | What to upload, what to download | `desktop/src/sync.rs` |
 | Whether the game is running | `desktop/src/session.rs` |
 | What the scan sees | `desktop/src/scanner.rs` |
-| Whether an upload is accepted | `server/internal/db/files.go` |
+| Whether an upload is accepted | `server/internal/db/files.go`, `server/internal/api/files.go` |
 | The fingerprints and the certificates | `server/internal/tlscert` |
 | The colours and the sizes | `desktop/src/theme.rs` |
 

@@ -14,6 +14,11 @@ var ErrNotFound = errors.New("not found")
 // ErrConflict is returned when an optimistic lock check fails.
 var ErrConflict = errors.New("conflict")
 
+// DefaultQuota is the storage an account gets when nothing else is said.
+// It is 5 GiB, and it matches the default in the migration that adds the
+// column.
+const DefaultQuota int64 = 5 << 30
+
 // User is an account owning games and API keys.
 type User struct {
 	ID          int64
@@ -21,6 +26,8 @@ type User struct {
 	DisplayName string
 	Disabled    bool
 	CreatedAt   string
+	// Quota is the storage the account may use, in bytes. Zero means no limit.
+	Quota int64
 }
 
 // APIKey is the metadata of an issued key. The secret itself is never stored.
@@ -56,7 +63,7 @@ func (d *DB) CreateUser(ctx context.Context, username, displayName string) (*Use
 	if err != nil {
 		return nil, fmt.Errorf("insert user id: %w", err)
 	}
-	return &User{ID: id, Username: username, DisplayName: displayName, CreatedAt: now()}, nil
+	return &User{ID: id, Username: username, DisplayName: displayName, CreatedAt: now(), Quota: DefaultQuota}, nil
 }
 
 // UserByUsername looks a user up by name.
@@ -64,8 +71,8 @@ func (d *DB) UserByUsername(ctx context.Context, username string) (*User, error)
 	u := &User{}
 	var disabled int
 	err := d.sql.QueryRowContext(ctx,
-		`SELECT id, username, display_name, disabled, created_at FROM users WHERE username = ?`, username).
-		Scan(&u.ID, &u.Username, &u.DisplayName, &disabled, &u.CreatedAt)
+		`SELECT id, username, display_name, disabled, created_at, quota FROM users WHERE username = ?`, username).
+		Scan(&u.ID, &u.Username, &u.DisplayName, &disabled, &u.CreatedAt, &u.Quota)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	}
@@ -81,8 +88,8 @@ func (d *DB) UserByID(ctx context.Context, id int64) (*User, error) {
 	u := &User{}
 	var disabled int
 	err := d.sql.QueryRowContext(ctx,
-		`SELECT id, username, display_name, disabled, created_at FROM users WHERE id = ?`, id).
-		Scan(&u.ID, &u.Username, &u.DisplayName, &disabled, &u.CreatedAt)
+		`SELECT id, username, display_name, disabled, created_at, quota FROM users WHERE id = ?`, id).
+		Scan(&u.ID, &u.Username, &u.DisplayName, &disabled, &u.CreatedAt, &u.Quota)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	}
@@ -96,7 +103,7 @@ func (d *DB) UserByID(ctx context.Context, id int64) (*User, error) {
 // ListUsers returns every account, ordered by name.
 func (d *DB) ListUsers(ctx context.Context) ([]User, error) {
 	rows, err := d.sql.QueryContext(ctx,
-		`SELECT id, username, display_name, disabled, created_at FROM users ORDER BY username`)
+		`SELECT id, username, display_name, disabled, created_at, quota FROM users ORDER BY username`)
 	if err != nil {
 		return nil, fmt.Errorf("list users: %w", err)
 	}
@@ -105,7 +112,7 @@ func (d *DB) ListUsers(ctx context.Context) ([]User, error) {
 	for rows.Next() {
 		var u User
 		var disabled int
-		if err := rows.Scan(&u.ID, &u.Username, &u.DisplayName, &disabled, &u.CreatedAt); err != nil {
+		if err := rows.Scan(&u.ID, &u.Username, &u.DisplayName, &disabled, &u.CreatedAt, &u.Quota); err != nil {
 			return nil, fmt.Errorf("scan user: %w", err)
 		}
 		u.Disabled = disabled != 0
@@ -128,6 +135,37 @@ func (d *DB) SetUserDisabled(ctx context.Context, userID int64, disabled bool) e
 		return ErrNotFound
 	}
 	return nil
+}
+
+// SetUserQuota sets the storage quota of an account, in bytes. Zero means no
+// limit.
+func (d *DB) SetUserQuota(ctx context.Context, userID, quota int64) error {
+	res, err := d.sql.ExecContext(ctx, `UPDATE users SET quota = ? WHERE id = ?`, quota, userID)
+	if err != nil {
+		return fmt.Errorf("update user quota: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// QuotaUsed returns the storage the current files of an account take, in bytes.
+//
+// It is the logical size: the sum of the sizes of the files the account holds
+// now. The same blob referenced by two games is counted twice, which is what
+// the user sees in the manifests.
+func (d *DB) QuotaUsed(ctx context.Context, userID int64) (int64, error) {
+	var used int64
+	err := d.sql.QueryRowContext(ctx,
+		`SELECT COALESCE(SUM(f.size), 0)
+		   FROM game_files f
+		   JOIN games g ON g.id = f.game_id
+		  WHERE g.user_id = ?`, userID).Scan(&used)
+	if err != nil {
+		return 0, fmt.Errorf("sum the used storage: %w", err)
+	}
+	return used, nil
 }
 
 // InsertAPIKey stores the hash of a newly issued key.

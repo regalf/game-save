@@ -95,6 +95,19 @@ recovery. A key is revoked and it stops working immediately.
 **Cost:** a key that leaks is as good as the account until it is revoked. One
 key per machine keeps the blast radius small.
 
+### A storage quota per account
+
+**Decision:** every account has a storage quota, 5 GiB by default, settable per
+account. An upload that would pass it is refused.
+
+**Why:** the program runs on a home disk, and one account that grows without
+end is a full disk for everybody. A quota makes the limit known before it is
+hit.
+
+**Cost:** the quota is the logical size of the current files, so the same blob
+in two games counts twice; and an account with a quota has to be watched. A
+quota of zero means no limit.
+
 ---
 
 ## 2. The client

@@ -334,3 +334,67 @@ func TestBlobIsDeduplicated(t *testing.T) {
 		t.Fatalf("expected 1 stored blob, got %d", len(digests))
 	}
 }
+
+func TestStorageQuotaIsEnforced(t *testing.T) {
+	env := newTestEnv(t)
+	u, key := env.newUser(t, "alice")
+	if err := env.db.SetUserQuota(context.Background(), u.ID, 10); err != nil {
+		t.Fatalf("set quota: %v", err)
+	}
+
+	resp, body := env.do("POST", "/v1/games", key, bytes.NewBufferString(`{"name":"Game"}`))
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("create game status = %d, body = %s", resp.StatusCode, body)
+	}
+	var created struct {
+		Game db.Game `json:"game"`
+	}
+	if err := json.Unmarshal(body, &created); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	gameID := created.Game.ID
+
+	upload := func(path string, content []byte) (*http.Response, []byte) {
+		endpoint := "/v1/games/" + gameID + "/file?path=" + url.QueryEscape(path) + "&device=pc"
+		return env.do("PUT", endpoint, key, bytes.NewReader(content))
+	}
+
+	// The first file fits in the 10 bytes of quota.
+	resp, body = upload("saves/a.dat", []byte("123456"))
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("the first upload status = %d, body = %s", resp.StatusCode, body)
+	}
+
+	// A second file would pass the quota.
+	resp, body = upload("saves/b.dat", []byte("123456"))
+	if resp.StatusCode != http.StatusRequestEntityTooLarge {
+		t.Fatalf("over quota status = %d, want 413, body = %s", resp.StatusCode, body)
+	}
+
+	// Replacing a file with a bigger one is judged on what changes.
+	resp, body = upload("saves/a.dat", []byte("12345678901"))
+	if resp.StatusCode != http.StatusRequestEntityTooLarge {
+		t.Fatalf("replacement over quota status = %d, want 413, body = %s", resp.StatusCode, body)
+	}
+
+	// /v1/me reports what the account uses and may use.
+	resp, body = env.do("GET", "/v1/me", key, nil)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("me status = %d, body = %s", resp.StatusCode, body)
+	}
+	var me struct {
+		Storage struct {
+			Used  int64 `json:"used"`
+			Quota int64 `json:"quota"`
+		} `json:"storage"`
+	}
+	if err := json.Unmarshal(body, &me); err != nil {
+		t.Fatalf("decode me: %v", err)
+	}
+	if me.Storage.Used != 6 {
+		t.Fatalf("used = %d, want 6", me.Storage.Used)
+	}
+	if me.Storage.Quota != 10 {
+		t.Fatalf("quota = %d, want 10", me.Storage.Quota)
+	}
+}

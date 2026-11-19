@@ -25,13 +25,17 @@ of the library and keeps their saves in sync with the server.
 │ │    Add game      │                                          │
 │ └──────────────────┘                                          │
 ├──────────────────────────────────────────────────────────────┤
-│ connected to https://… as alice (key laptop)   [Reconnect]   │
+│ connected to https://… as alice (key laptop)   254 MB / 5 GB │
 └──────────────────────────────────────────────────────────────┘
 ```
 
 The library is a grid. Every card is a game; the last one of the grid adds a
 game. The grid fills the rows, and the number of columns follows the width of
 the window.
+
+The bar at the bottom shows, at the right, how much of the storage quota the
+account uses: a thin bar and a number, for example `254 MB / 5.0 GB`. The bar
+turns red when the account is almost full.
 
 ---
 

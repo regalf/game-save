@@ -360,6 +360,25 @@ pub fn format_time(secs: i64) -> String {
     format!("{y:04}-{m:02}-{d:02} {h:02}:{mi:02}:{s:02}")
 }
 
+/// Format a byte count with a binary unit: `254 MB`, `5.0 GB`.
+pub fn format_bytes(bytes: i64) -> String {
+    if bytes <= 0 {
+        return "0 B".to_string();
+    }
+    const UNITS: [&str; 6] = ["B", "KB", "MB", "GB", "TB", "PB"];
+    let mut value = bytes as f64;
+    let mut unit = 0;
+    while value >= 1024.0 && unit < UNITS.len() - 1 {
+        value /= 1024.0;
+        unit += 1;
+    }
+    if unit == 0 {
+        format!("{} {}", bytes, UNITS[unit])
+    } else {
+        format!("{value:.1} {}", UNITS[unit])
+    }
+}
+
 /// Current unix time in seconds.
 pub fn now_secs() -> i64 {
     std::time::SystemTime::now()
@@ -410,5 +429,13 @@ mod tests {
     fn time_is_formatted() {
         assert_eq!(format_time(0), "1970-01-01 00:00:00");
         assert_eq!(format_time(1_700_000_000), "2023-11-14 22:13:20");
+    }
+
+    #[test]
+    fn bytes_are_formatted() {
+        assert_eq!(format_bytes(0), "0 B");
+        assert_eq!(format_bytes(512), "512 B");
+        assert_eq!(format_bytes(254 * 1024 * 1024), "254.0 MB");
+        assert_eq!(format_bytes(5 * 1024 * 1024 * 1024), "5.0 GB");
     }
 }

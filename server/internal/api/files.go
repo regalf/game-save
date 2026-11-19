@@ -2,6 +2,7 @@ package api
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -98,6 +99,27 @@ func (s *Server) handleUploadFile(w http.ResponseWriter, r *http.Request) {
 		s.log.Error("store blob", "error", err)
 		writeError(w, http.StatusInternalServerError, "internal_error", "could not store the file")
 		return
+	}
+
+	// The account has a storage quota, when it is not zero. The file that is
+	// being replaced no longer counts, so the check is on what the account
+	// would hold after the upload.
+	if u.Quota > 0 {
+		used, err := s.db.QuotaUsed(r.Context(), u.ID)
+		if err != nil {
+			s.log.Error("read the used storage", "error", err)
+			writeError(w, http.StatusInternalServerError, "internal_error", "could not read the used storage")
+			return
+		}
+		var replaced int64
+		if file, err := s.db.GetFile(r.Context(), g.ID, path); err == nil {
+			replaced = file.Size
+		}
+		if used-replaced+size > u.Quota {
+			writeError(w, http.StatusRequestEntityTooLarge, "quota_exceeded",
+				fmt.Sprintf("the account is over its storage quota (%d of %d bytes)", used, u.Quota))
+			return
+		}
 	}
 
 	var mtimeNS int64

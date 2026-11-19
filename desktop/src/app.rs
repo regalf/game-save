@@ -90,6 +90,8 @@ pub struct GameSaveApp {
     icons: HashMap<String, GameIcon>,
     status: String,
     status_ok: bool,
+    /// The storage the account uses and may use: (used, quota).
+    storage: Option<(i64, i64)>,
     last_poll: Instant,
     last_attempt: Instant,
     next_id: u64,
@@ -128,6 +130,7 @@ impl GameSaveApp {
             icons: HashMap::new(),
             status: "not connected".to_string(),
             status_ok: false,
+            storage: None,
             last_poll: Instant::now(),
             last_attempt: Instant::now(),
             next_id: 1,
@@ -191,6 +194,9 @@ impl GameSaveApp {
                     self.status = text.clone();
                     self.status_ok = true;
                     self.push_log(text, false);
+                }
+                Ev::Storage { used, quota } => {
+                    self.storage = Some((used, quota));
                 }
                 Ev::Failed(text) => {
                     self.status = text.clone();
@@ -525,6 +531,52 @@ impl GameSaveApp {
         self.show_add = true;
     }
 
+    /// The storage the account uses: a thin bar and a number, at the right of
+    /// the bar at the bottom.
+    fn storage_bar(&mut self, ui: &mut egui::Ui) {
+        let Some((used, quota)) = self.storage else {
+            return;
+        };
+        ui.label(
+            RichText::new(format_storage(used, quota))
+                .size(size::SMALL)
+                .color(palette::dark::TEXT_MUTED),
+        );
+
+        // A quota of zero means no limit, and there is nothing to draw.
+        if quota <= 0 {
+            return;
+        }
+        let width = 90.0;
+        let (rect, response) = ui.allocate_exact_size(egui::vec2(width, 6.0), egui::Sense::hover());
+        if ui.is_rect_visible(rect) {
+            let fraction = (used as f64 / quota as f64).clamp(0.0, 1.0) as f32;
+            ui.painter().rect(
+                rect,
+                0.0,
+                palette::dark::SURFACE,
+                Stroke::new(1.0, palette::dark::BORDER),
+                egui::StrokeKind::Middle,
+            );
+            let fill = egui::Rect::from_min_size(
+                rect.min,
+                egui::vec2(rect.width() * fraction, rect.height()),
+            );
+            let colour = if fraction >= 0.9 {
+                palette::dark::DANGER
+            } else {
+                palette::dark::ACCENT
+            };
+            ui.painter()
+                .rect(fill, 0.0, colour, Stroke::NONE, egui::StrokeKind::Middle);
+        }
+        response.on_hover_text(format!(
+            "{} of {} used",
+            crate::config::format_bytes(used),
+            crate::config::format_bytes(quota)
+        ));
+    }
+
     /// The bar at the bottom: the state of the connection.
     fn status_bar(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
@@ -545,6 +597,7 @@ impl GameSaveApp {
             }
 
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                self.storage_bar(ui);
                 if !self.status_ok && widgets::button(ui, "Reconnect") {
                     self.connect();
                 }
@@ -956,4 +1009,14 @@ fn split_list(value: &str) -> Vec<String> {
         .map(|s| s.trim().to_string())
         .filter(|s| !s.is_empty())
         .collect()
+}
+
+/// The storage as `254 MB / 5.0 GB`, or `254 MB / unlimited`.
+fn format_storage(used: i64, quota: i64) -> String {
+    let used = crate::config::format_bytes(used);
+    if quota <= 0 {
+        format!("{used} / unlimited")
+    } else {
+        format!("{used} / {}", crate::config::format_bytes(quota))
+    }
 }

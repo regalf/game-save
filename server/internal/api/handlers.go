@@ -40,6 +40,14 @@ func (s *Server) handleCert(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 	u := userFrom(r.Context())
 	k := keyFrom(r.Context())
+
+	used, err := s.db.QuotaUsed(r.Context(), u.ID)
+	if err != nil {
+		s.log.Error("read the used storage", "error", err)
+		writeError(w, http.StatusInternalServerError, "internal_error", "could not read the used storage")
+		return
+	}
+
 	writeJSON(w, http.StatusOK, map[string]any{
 		"user": map[string]any{
 			"id":           u.ID,
@@ -48,11 +56,15 @@ func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 			"created_at":   u.CreatedAt,
 		},
 		"key": map[string]any{
-			"id":         k.ID,
-			"label":      k.Label,
-			"prefix":     k.Prefix,
-			"created_at": k.CreatedAt,
+			"id":           k.ID,
+			"label":        k.Label,
+			"prefix":       k.Prefix,
+			"created_at":   k.CreatedAt,
 			"last_used_at": k.LastUsedAt,
+		},
+		"storage": map[string]any{
+			"used":  used,
+			"quota": u.Quota,
 		},
 	})
 }

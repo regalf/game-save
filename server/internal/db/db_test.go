@@ -30,8 +30,8 @@ func TestMigrateIsIdempotent(t *testing.T) {
 	if err := d.SQL().QueryRowContext(ctx, `SELECT COUNT(*) FROM schema_migrations`).Scan(&n); err != nil {
 		t.Fatalf("count migrations: %v", err)
 	}
-	if n != 1 {
-		t.Fatalf("expected 1 applied migration, got %d", n)
+	if n != 2 {
+		t.Fatalf("expected 2 applied migrations, got %d", n)
 	}
 }
 
@@ -231,5 +231,61 @@ func TestNormalizePath(t *testing.T) {
 		if got != tc.want {
 			t.Errorf("NormalizePath(%q) = %q, want %q", tc.in, got, tc.want)
 		}
+	}
+}
+
+func TestUserQuota(t *testing.T) {
+	d := newTestDB(t)
+	ctx := context.Background()
+
+	u, err := d.CreateUser(ctx, "alice", "")
+	if err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+	if u.Quota != DefaultQuota {
+		t.Fatalf("the default quota is %d, want %d", u.Quota, DefaultQuota)
+	}
+
+	if err := d.SetUserQuota(ctx, u.ID, 4096); err != nil {
+		t.Fatalf("SetUserQuota: %v", err)
+	}
+	got, err := d.UserByUsername(ctx, "alice")
+	if err != nil {
+		t.Fatalf("UserByUsername: %v", err)
+	}
+	if got.Quota != 4096 {
+		t.Fatalf("the quota is %d, want 4096", got.Quota)
+	}
+
+	// The used storage is the sum of the current files of the account.
+	g, err := d.CreateGame(ctx, u.ID, "Game", "")
+	if err != nil {
+		t.Fatalf("CreateGame: %v", err)
+	}
+	if _, err := d.PutFile(ctx, g.ID, "saves/a.dat", "aaa", 3, 0, "pc", ""); err != nil {
+		t.Fatalf("PutFile: %v", err)
+	}
+	if _, err := d.PutFile(ctx, g.ID, "saves/b.dat", "bbbb", 4, 0, "pc", ""); err != nil {
+		t.Fatalf("PutFile: %v", err)
+	}
+	used, err := d.QuotaUsed(ctx, u.ID)
+	if err != nil {
+		t.Fatalf("QuotaUsed: %v", err)
+	}
+	if used != 7 {
+		t.Fatalf("the used storage is %d, want 7", used)
+	}
+
+	// An account with no files uses nothing.
+	other, err := d.CreateUser(ctx, "bob", "")
+	if err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+	used, err = d.QuotaUsed(ctx, other.ID)
+	if err != nil {
+		t.Fatalf("QuotaUsed: %v", err)
+	}
+	if used != 0 {
+		t.Fatalf("an empty account uses %d, want 0", used)
 	}
 }

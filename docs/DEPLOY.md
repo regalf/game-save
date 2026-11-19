@@ -73,6 +73,30 @@ Two things follow from that:
 
 ---
 
+## Storage quota
+
+Every account has a storage quota, **5 GiB by default**. The quota counts the
+sum of the sizes of the current files of the account; the same blob referenced
+by two games counts twice, because that is what the manifests show.
+
+```bash
+gamesave user quota alice             # show the quota
+gamesave user quota alice 10GB        # 10 GiB
+gamesave user quota alice 0           # no limit
+gamesave user add bob --quota 2GB     # at creation
+```
+
+An upload that would pass the quota is refused with `413` and the code
+`quota_exceeded`. Replacing a file with a bigger one is judged on the
+difference, not on the whole size.
+
+**The server needs at least 6 GB of free storage** for one account with the
+default quota: 5 GiB of saves, plus the database and the overhead. Plan for
+more if you give more. The units of the command are binary, like the rest of
+the program: `5GB` is 5 × 1024³ bytes.
+
+---
+
 ## Reaching it from outside, without opening a port
 
 Opening the port on the router exposes the service to the internet, and the
@@ -225,6 +249,7 @@ gamesave key revoke --user alice --id 3
 One key per machine is the sensible habit: a key can be revoked without
 disturbing the other machines.
 
+The storage quota of an account is in [Storage quota](#storage-quota).
 
 ---
 

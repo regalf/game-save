@@ -85,6 +85,7 @@ paths:
                 properties:
                   user: { $ref: "#/components/schemas/User" }
                   key: { $ref: "#/components/schemas/ApiKey" }
+                  storage: { $ref: "#/components/schemas/Storage" }
         "401":
           $ref: "#/components/responses/Unauthorized"
 
@@ -288,7 +289,9 @@ paths:
         "409":
           $ref: "#/components/responses/Conflict"
         "413":
-          description: The file is over the configured limit
+          description: >
+            The file is over the configured limit, or the account is over its
+            storage quota (error code `quota_exceeded`)
 
     delete:
       tags: [files]
@@ -379,6 +382,17 @@ components:
           description: The non secret prefix of the key
         created_at: { type: string }
         last_used_at: { type: string }
+    Storage:
+      type: object
+      properties:
+        used:
+          type: integer
+          format: int64
+          description: The bytes the current files of the account take
+        quota:
+          type: integer
+          format: int64
+          description: The bytes the account may use; zero means no limit
     Certificate:
       type: object
       properties:

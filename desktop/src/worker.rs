@@ -45,6 +45,8 @@ pub enum Ev {
     Log(String),
     /// The connection is established.
     Connected(String),
+    /// The storage the account uses and may use.
+    Storage { used: i64, quota: i64 },
     /// Something failed.
     Failed(String),
     /// A game finished synchronising.
@@ -124,6 +126,12 @@ async fn handle(cmd: Cmd, events: &Sender<Ev>) {
         Cmd::Connect { cfg } => match ApiClient::connect(&cfg).await {
             Ok(api) => match api.me().await {
                 Ok(me) => {
+                    if let Some(storage) = me.storage.clone() {
+                        let _ = events.send(Ev::Storage {
+                            used: storage.used,
+                            quota: storage.quota,
+                        });
+                    }
                     let _ = events.send(Ev::Connected(format!(
                         "connected to {} as {} (key {})",
                         api.base(),
@@ -162,6 +170,7 @@ async fn handle(cmd: Cmd, events: &Sender<Ev>) {
             for entry in games {
                 run_one(&api, &cfg, &entry, &paths, events).await;
             }
+            report_storage(&api, events).await;
         }
 
         Cmd::SyncGame { cfg, entry, paths } => {
@@ -173,6 +182,7 @@ async fn handle(cmd: Cmd, events: &Sender<Ev>) {
                 }
             };
             run_one(&api, &cfg, &entry, &paths, events).await;
+            report_storage(&api, events).await;
         }
 
         Cmd::Resolve {
@@ -253,6 +263,19 @@ async fn handle(cmd: Cmd, events: &Sender<Ev>) {
                     let _ = events.send(Ev::Failed(format!("cannot remove {game_id}: {err}")));
                 }
             }
+        }
+    }
+}
+
+/// Tell the interface how much storage the account uses now, so the bar at
+/// the bottom follows what the last synchronisation changed.
+async fn report_storage(api: &ApiClient, events: &Sender<Ev>) {
+    if let Ok(me) = api.me().await {
+        if let Some(storage) = me.storage {
+            let _ = events.send(Ev::Storage {
+                used: storage.used,
+                quota: storage.quota,
+            });
         }
     }
 }

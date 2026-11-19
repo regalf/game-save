@@ -48,6 +48,18 @@ pub struct Me {
     pub user: MeUser,
     /// The key in use.
     pub key: MeKey,
+    /// The storage the account uses and may use.
+    #[serde(default)]
+    pub storage: Option<Storage>,
+}
+
+/// The storage of an account.
+#[derive(Debug, Clone, Deserialize)]
+pub struct Storage {
+    /// Bytes used by the current files of the account.
+    pub used: i64,
+    /// Bytes the account may use; zero means no limit.
+    pub quota: i64,
 }
 
 /// The account behind the API key.

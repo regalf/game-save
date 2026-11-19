@@ -230,7 +230,7 @@ The whole surface, with the parameters and the answers, is in
 |---|---|---|
 | `GET` | `/healthz` | liveness, no authentication |
 | `GET` | `/v1/cert` | the trust anchor, no authentication |
-| `GET` | `/v1/me` | the account and the key in use |
+| `GET` | `/v1/me` | the account, the key in use and the storage of the account |
 | `GET` | `/v1/games` | the games of the account |
 | `POST` | `/v1/games` | create a namespace |
 | `GET` / `PATCH` / `DELETE` | `/v1/games/{id}` | read, rename, delete |
