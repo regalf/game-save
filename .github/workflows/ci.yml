@@ -164,7 +164,7 @@ jobs:
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
-          scripts/latest-json.sh "$VERSION" \
+          sh scripts/latest-json.sh "$VERSION" \
             dist/gamesave-server-linux-amd64 \
             dist/gamesave-server-linux-arm64 \
             dist/gamesave-server-windows-amd64.exe \
