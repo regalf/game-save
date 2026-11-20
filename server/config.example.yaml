@@ -2,10 +2,13 @@
 #
 # Every value can be overridden with an environment variable:
 #   GAMESAVE_LISTEN, GAMESAVE_DATA_DIR, GAMESAVE_TLS_MODE, GAMESAVE_CERT_FILE,
-#   GAMESAVE_KEY_FILE, GAMESAVE_FINGERPRINT_FILE, GAMESAVE_MAX_FILE_SIZE
+#   GAMESAVE_KEY_FILE, GAMESAVE_FINGERPRINT_FILE, GAMESAVE_MAX_FILE_SIZE,
+#   GAMESAVE_SANS, GAMESAVE_UPDATE_CHECK, GAMESAVE_UPDATE_INTERVAL_HOURS,
+#   GAMESAVE_UPDATE_REPO
 
 server:
-  # Address the HTTPS listener binds to.
+  # Address the HTTPS listener binds to. The port has to appear in the subject
+  # alternative names below, otherwise the client refuses the connection.
   listen: ":8443"
 
   # Where the database, the blob store and the certificates live.
@@ -13,21 +16,26 @@ server:
 
   tls:
     # selfsigned | files | off
+    #   selfsigned: the server generates its own authority and certificate
+    #   files:      use the certificate and the key below
+    #   off:        plain HTTP, only behind a proxy or for a test
     mode: "selfsigned"
 
     # Certificate and key used when mode is "files".
     cert_file: ""
     key_file: ""
 
-    # Subject alternative names of the generated certificate.
-    # IP addresses and DNS names are both accepted.
+    # Subject alternative names of the generated certificate. Add every name
+    # and address the clients use to reach this machine, for example its IP.
     san:
       - "localhost"
       - "127.0.0.1"
       - "192.168.1.10"
       - "gamesave.local"
 
-    # Validity of the generated certificate, in days.
+    # Validity of the generated certificate, in days. The client pins the
+    # fingerprint of the authority, not the certificate, so a renewal is a
+    # change of fingerprint and the client will say so.
     validity_days: 3650
 
     # Where the fingerprint is written, relative to data_dir.
@@ -35,9 +43,22 @@ server:
     fingerprint_file: "certs/fingerprint.txt"
 
 auth:
-  # When false the API accepts anonymous requests. Useful only for testing.
+  # When false the API accepts anonymous requests. Useful only for testing:
+  # leave it true everywhere else.
   require_api_key: true
 
 limits:
   # Largest single file accepted, in bytes (1 GiB).
   max_file_size: 1073741824
+
+update:
+  # Look once in a while whether a newer release exists, and tell the clients.
+  # The server only looks: it never updates itself. To update, stop the server
+  # and run `gamesave update`.
+  check: false
+
+  # How often the server looks, in hours.
+  interval_hours: 24
+
+  # The GitHub repository that publishes the releases.
+  repo: "regalf/game-save"

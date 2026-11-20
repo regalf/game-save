@@ -13,11 +13,20 @@ const AUMID: &str = "GameSave";
 pub fn hidden_to_tray() {
     #[cfg(target_os = "windows")]
     {
-        register_aumid();
         windows_toast();
     }
     #[cfg(not(target_os = "windows"))]
     {}
+}
+
+/// Tell the user that a newer server release exists.
+pub fn update_available(version: &str) {
+    #[cfg(target_os = "windows")]
+    windows_update(version);
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = version;
+    }
 }
 
 /// Register the app user model id once, so Windows accepts the toast.
@@ -103,22 +112,25 @@ fn wide(text: &str) -> Vec<u16> {
     text.encode_utf16().chain(std::iter::once(0)).collect()
 }
 
-/// Show a Windows toast.
+/// Show a Windows toast with two lines.
 #[cfg(target_os = "windows")]
-fn windows_toast() {
+fn show_toast(title: &str, line: &str) {
     use windows::core::HSTRING;
     use windows::Data::Xml::Dom::XmlDocument;
     use windows::UI::Notifications::{ToastNotification, ToastNotificationManager};
 
+    register_aumid();
     let app_id = HSTRING::from(AUMID);
-    let xml = HSTRING::from(
+    let title = escape_xml(title);
+    let line = escape_xml(line);
+    let xml = HSTRING::from(format!(
         "<toast>\
             <visual><binding template=\"ToastGeneric\">\
-                <text>Game Save</text>\
-                <text>Game Save keeps running in the background.</text>\
+                <text>{title}</text>\
+                <text>{line}</text>\
             </binding></visual>\
-        </toast>",
-    );
+        </toast>"
+    ));
 
     let Ok(document) = XmlDocument::new() else {
         log::warn!("the notification document cannot be created");
@@ -140,4 +152,25 @@ fn windows_toast() {
         }
         Err(err) => log::warn!("the notification notifier cannot be created: {err}"),
     }
+}
+
+/// The toast shown when the window goes to the tray.
+#[cfg(target_os = "windows")]
+fn windows_toast() {
+    show_toast("Game Save", "Game Save keeps running in the background.");
+}
+
+/// The toast shown when a newer server release exists.
+#[cfg(target_os = "windows")]
+fn windows_update(version: &str) {
+    let title = format!("Game Save server {version} is available");
+    show_toast(&title, "Stop the server and run `gamesave update`.");
+}
+
+/// Escape the characters the toast XML does not accept.
+#[cfg(target_os = "windows")]
+fn escape_xml(text: &str) -> String {
+    text.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
 }

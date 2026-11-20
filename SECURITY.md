@@ -86,6 +86,11 @@ front of it and the API key must be strong. Prefer the options above.
 - **The accounts**: each account sees only its own games and files.
 - **The files**: stored on disk, content addressed, with the history of every
   version.
+- **The update check**: when it is enabled, the server reads the release
+  description from GitHub over HTTPS, once in a while. It is off by default,
+  it carries no credentials, and the binary that `gamesave update` installs is
+  checked against the sha256 published in the release before it replaces the
+  executable.
 
 What it does **not** do: encrypt the files at rest, check that the client is
 who it says beyond the API key, protect against a compromised machine.

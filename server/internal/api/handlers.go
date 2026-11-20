@@ -6,6 +6,7 @@ import (
 	"runtime"
 
 	"gamesave/internal/db"
+	"gamesave/internal/updater"
 )
 
 // Version is the build version of the server, overridden at link time.
@@ -48,6 +49,16 @@ func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	server := map[string]any{"version": Version}
+	if s.latest != nil {
+		latestVersion, _ := s.latest.Latest()
+		if latestVersion != "" {
+			server["latest_version"] = latestVersion
+			server["latest_url"] = s.latest.URL()
+			server["update_available"] = updater.IsNewer(latestVersion, Version)
+		}
+	}
+
 	writeJSON(w, http.StatusOK, map[string]any{
 		"user": map[string]any{
 			"id":           u.ID,
@@ -66,6 +77,7 @@ func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 			"used":  used,
 			"quota": u.Quota,
 		},
+		"server": server,
 	})
 }
 

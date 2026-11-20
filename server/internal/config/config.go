@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -15,6 +16,7 @@ type Config struct {
 	Server ServerConfig `yaml:"server"`
 	Auth   AuthConfig   `yaml:"auth"`
 	Limits LimitsConfig `yaml:"limits"`
+	Update UpdateConfig `yaml:"update"`
 }
 
 // ServerConfig holds network and storage settings.
@@ -53,6 +55,19 @@ type LimitsConfig struct {
 	MaxFileSize int64 `yaml:"max_file_size"`
 }
 
+// UpdateConfig holds the update check.
+//
+// The server only looks: it never updates itself. To update, stop the server
+// and run `gamesave update`.
+type UpdateConfig struct {
+	// Check asks the server to look for a newer release once in a while.
+	Check bool `yaml:"check"`
+	// IntervalHours is how often the server looks, in hours.
+	IntervalHours int `yaml:"interval_hours"`
+	// Repo is the GitHub repository that publishes the releases.
+	Repo string `yaml:"repo"`
+}
+
 // Default returns the configuration used when nothing is specified.
 func Default() Config {
 	return Config{
@@ -68,6 +83,11 @@ func Default() Config {
 		},
 		Auth:   AuthConfig{RequireAPIKey: true},
 		Limits: LimitsConfig{MaxFileSize: 1 << 30}, // 1 GiB
+		Update: UpdateConfig{
+			Check:         false,
+			IntervalHours: 24,
+			Repo:          "regalf/game-save",
+		},
 	}
 }
 
@@ -133,6 +153,19 @@ func applyEnv(cfg *Config) {
 			cfg.Server.TLS.SANs = sans
 		}
 	}
+	if v := os.Getenv("GAMESAVE_UPDATE_CHECK"); v != "" {
+		if b, err := strconv.ParseBool(v); err == nil {
+			cfg.Update.Check = b
+		}
+	}
+	if v := os.Getenv("GAMESAVE_UPDATE_INTERVAL_HOURS"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			cfg.Update.IntervalHours = n
+		}
+	}
+	if v := os.Getenv("GAMESAVE_UPDATE_REPO"); v != "" {
+		cfg.Update.Repo = v
+	}
 }
 
 // validate checks the configuration for internal consistency.
@@ -152,6 +185,12 @@ func (cfg Config) validate() error {
 	}
 	if cfg.Limits.MaxFileSize <= 0 {
 		return fmt.Errorf("limits.max_file_size must be positive")
+	}
+	if cfg.Update.IntervalHours <= 0 {
+		return fmt.Errorf("update.interval_hours must be positive")
+	}
+	if cfg.Update.Repo == "" {
+		return fmt.Errorf("update.repo must not be empty")
 	}
 	return nil
 }

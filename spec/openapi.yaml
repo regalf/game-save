@@ -86,6 +86,7 @@ paths:
                   user: { $ref: "#/components/schemas/User" }
                   key: { $ref: "#/components/schemas/ApiKey" }
                   storage: { $ref: "#/components/schemas/Storage" }
+                  server: { $ref: "#/components/schemas/ServerInfo" }
         "401":
           $ref: "#/components/responses/Unauthorized"
 
@@ -393,6 +394,21 @@ components:
           type: integer
           format: int64
           description: The bytes the account may use; zero means no limit
+    ServerInfo:
+      type: object
+      properties:
+        version:
+          type: string
+          description: The version this server runs
+        latest_version:
+          type: string
+          description: The latest known release, when the update check is on
+        latest_url:
+          type: string
+          description: The page of the latest release
+        update_available:
+          type: boolean
+          description: Whether the latest release is newer than this server
     Certificate:
       type: object
       properties:

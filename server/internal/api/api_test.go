@@ -25,6 +25,10 @@ type testEnv struct {
 }
 
 func newTestEnv(t *testing.T) *testEnv {
+	return newTestEnvWithOptions(t, nil)
+}
+
+func newTestEnvWithOptions(t *testing.T, latest LatestVersion) *testEnv {
 	t.Helper()
 	dir := t.TempDir()
 
@@ -47,6 +51,9 @@ func newTestEnv(t *testing.T) *testEnv {
 	}
 
 	srv := New(cfg, database, blobs, testLogger())
+	if latest != nil {
+		srv = srv.WithUpdater(latest)
+	}
 	ts := httptest.NewServer(srv.Handler())
 	t.Cleanup(ts.Close)
 
@@ -396,5 +403,69 @@ func TestStorageQuotaIsEnforced(t *testing.T) {
 	}
 	if me.Storage.Quota != 10 {
 		t.Fatalf("quota = %d, want 10", me.Storage.Quota)
+	}
+}
+
+// fakeLatest is a LatestVersion that always answers the same.
+type fakeLatest struct {
+	version string
+	tag     string
+}
+
+func (f fakeLatest) Latest() (string, string) { return f.version, f.tag }
+func (f fakeLatest) URL() string              { return "https://example.com/releases/latest" }
+
+func TestMeReportsTheUpdate(t *testing.T) {
+	env := newTestEnvWithOptions(t, fakeLatest{version: "0.3.0", tag: "v0.3.0"})
+	_, key := env.newUser(t, "alice")
+
+	resp, body := env.do("GET", "/v1/me", key, nil)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("me status = %d, body = %s", resp.StatusCode, body)
+	}
+	var me struct {
+		Server struct {
+			Version         string `json:"version"`
+			LatestVersion   string `json:"latest_version"`
+			LatestURL       string `json:"latest_url"`
+			UpdateAvailable bool   `json:"update_available"`
+		} `json:"server"`
+	}
+	if err := json.Unmarshal(body, &me); err != nil {
+		t.Fatalf("decode me: %v", err)
+	}
+	if me.Server.Version != Version {
+		t.Fatalf("version = %q, want %q", me.Server.Version, Version)
+	}
+	if me.Server.LatestVersion != "0.3.0" {
+		t.Fatalf("latest_version = %q", me.Server.LatestVersion)
+	}
+	if me.Server.LatestURL != "https://example.com/releases/latest" {
+		t.Fatalf("latest_url = %q", me.Server.LatestURL)
+	}
+	if !me.Server.UpdateAvailable {
+		t.Fatal("update_available must be true when the latest is newer")
+	}
+}
+
+func TestMeWithoutTheCheck(t *testing.T) {
+	env := newTestEnv(t)
+	_, key := env.newUser(t, "alice")
+
+	resp, body := env.do("GET", "/v1/me", key, nil)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("me status = %d, body = %s", resp.StatusCode, body)
+	}
+	var me struct {
+		Server map[string]any `json:"server"`
+	}
+	if err := json.Unmarshal(body, &me); err != nil {
+		t.Fatalf("decode me: %v", err)
+	}
+	if _, ok := me.Server["latest_version"]; ok {
+		t.Fatal("latest_version must be absent when the check is off")
+	}
+	if me.Server["version"] != Version {
+		t.Fatalf("version = %v", me.Server["version"])
 	}
 }

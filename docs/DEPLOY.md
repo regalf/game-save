@@ -105,6 +105,38 @@ the program: `5GB` is 5 × 1024³ bytes.
 
 ---
 
+## Knowing when a new release is out
+
+The server can look, once in a while, whether a newer release exists:
+
+```yaml
+update:
+  check: true
+  interval_hours: 24
+  repo: "regalf/game-save"
+```
+
+It reads `latest.json` from the latest release, which holds the version and the
+sha256 of every server binary. When the latest is newer, the clients are told
+and the app shows a notification.
+
+The server **never updates itself**. To update:
+
+```bash
+sudo systemctl stop gamesave
+gamesave update          # downloads, checks the sha256, replaces the binary
+sudo systemctl start gamesave
+```
+
+`gamesave update --check` only says what is available. The download is verified
+against the sha256 published in the release before the binary is replaced, so a
+corrupted or tampered package is refused.
+
+The check is off by default: it is one HTTPS request every `interval_hours` to
+GitHub, and it needs the repository to be public.
+
+---
+
 ## Reaching it from outside, without opening a port
 
 Opening the port on the router exposes the service to the internet, and the

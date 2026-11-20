@@ -51,6 +51,9 @@ pub struct Me {
     /// The storage the account uses and may use.
     #[serde(default)]
     pub storage: Option<Storage>,
+    /// The server version and the latest known release.
+    #[serde(default)]
+    pub server: Option<ServerInfo>,
 }
 
 /// The storage of an account.
@@ -60,6 +63,22 @@ pub struct Storage {
     pub used: i64,
     /// Bytes the account may use; zero means no limit.
     pub quota: i64,
+}
+
+/// The version of the server and the latest known release.
+#[derive(Debug, Clone, Deserialize)]
+pub struct ServerInfo {
+    /// The version this server runs.
+    pub version: String,
+    /// The latest release, when the update check is on and has answered.
+    #[serde(default)]
+    pub latest_version: Option<String>,
+    /// The page of the latest release.
+    #[serde(default)]
+    pub latest_url: Option<String>,
+    /// Whether the latest release is newer than this server.
+    #[serde(default)]
+    pub update_available: bool,
 }
 
 /// The account behind the API key.

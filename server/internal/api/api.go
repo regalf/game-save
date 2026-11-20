@@ -17,6 +17,15 @@ import (
 	"gamesave/internal/db"
 )
 
+// LatestVersion is the source of the latest known release, when the update
+// check is enabled.
+type LatestVersion interface {
+	// Latest returns the version and the tag of the latest known release.
+	Latest() (version, tag string)
+	// URL is the page of the latest release.
+	URL() string
+}
+
 // Server holds the dependencies of the HTTP layer.
 type Server struct {
 	cfg   config.Config
@@ -32,6 +41,8 @@ type Server struct {
 	anchorFingerprint string
 	// leafFingerprint is the SHA-256 of the certificate the server presents.
 	leafFingerprint string
+	// latest is the latest known release, nil when the check is disabled.
+	latest LatestVersion
 }
 
 // WithCertificate publishes the trust anchor and the server certificate
@@ -40,6 +51,12 @@ func (s *Server) WithCertificate(anchorPEM []byte, anchorFingerprint, leafFinger
 	s.anchorPEM = anchorPEM
 	s.anchorFingerprint = anchorFingerprint
 	s.leafFingerprint = leafFingerprint
+	return s
+}
+
+// WithUpdater publishes the latest known release to the clients.
+func (s *Server) WithUpdater(latest LatestVersion) *Server {
+	s.latest = latest
 	return s
 }
 

@@ -121,6 +121,7 @@ from the repository.
 | `gamesave-server-windows-amd64.exe` | the server, Windows |
 | `gamesave-client-linux-amd64` | the companion app, Linux |
 | `gamesave-client-windows-amd64.exe` | the companion app, Windows |
+| `latest.json` | the version and the sha256 of the server binaries, for the updater |
 
 ```bash
 git tag -a v0.3.0 -m "Game Save 0.3.0"
@@ -130,7 +131,17 @@ gh release create v0.3.0 --title "Game Save 0.3.0" --notes-file release-notes.md
   dist/gamesave-server-linux-arm64 \
   dist/gamesave-server-windows-amd64.exe \
   dist/gamesave-client-linux-amd64 \
-  dist/gamesave-client-windows-amd64.exe
+  dist/gamesave-client-windows-amd64.exe \
+  latest.json
+```
+
+`scripts/latest-json.sh` writes `latest.json` from the binaries:
+
+```bash
+scripts/latest-json.sh 0.3.0 \
+  dist/gamesave-server-linux-amd64 \
+  dist/gamesave-server-linux-arm64 \
+  dist/gamesave-server-windows-amd64.exe
 ```
 
 The repository has to be public. A fix to the installer is a push to `main`,

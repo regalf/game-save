@@ -92,6 +92,9 @@ pub struct GameSaveApp {
     status_ok: bool,
     /// The storage the account uses and may use: (used, quota).
     storage: Option<(i64, i64)>,
+    /// The last version the user was told about, so the notice is shown once
+    /// per version.
+    last_notified: Option<String>,
     last_poll: Instant,
     last_attempt: Instant,
     next_id: u64,
@@ -131,6 +134,7 @@ impl GameSaveApp {
             status: "not connected".to_string(),
             status_ok: false,
             storage: None,
+            last_notified: None,
             last_poll: Instant::now(),
             last_attempt: Instant::now(),
             next_id: 1,
@@ -197,6 +201,22 @@ impl GameSaveApp {
                 }
                 Ev::Storage { used, quota } => {
                     self.storage = Some((used, quota));
+                }
+                Ev::Server(server) => {
+                    if server.update_available {
+                        if let Some(latest) = &server.latest_version {
+                            if self.last_notified.as_deref() != Some(latest.as_str()) {
+                                crate::notify::update_available(latest);
+                                self.last_notified = Some(latest.clone());
+                                self.push_log(
+                                    format!(
+                                        "the server {latest} is available: stop the server and run `gamesave update`"
+                                    ),
+                                    false,
+                                );
+                            }
+                        }
+                    }
                 }
                 Ev::Failed(text) => {
                     self.status = text.clone();

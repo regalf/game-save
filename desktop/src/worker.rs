@@ -47,6 +47,8 @@ pub enum Ev {
     Connected(String),
     /// The storage the account uses and may use.
     Storage { used: i64, quota: i64 },
+    /// The server version and the latest known release.
+    Server(crate::api::ServerInfo),
     /// Something failed.
     Failed(String),
     /// A game finished synchronising.
@@ -126,12 +128,7 @@ async fn handle(cmd: Cmd, events: &Sender<Ev>) {
         Cmd::Connect { cfg } => match ApiClient::connect(&cfg).await {
             Ok(api) => match api.me().await {
                 Ok(me) => {
-                    if let Some(storage) = me.storage.clone() {
-                        let _ = events.send(Ev::Storage {
-                            used: storage.used,
-                            quota: storage.quota,
-                        });
-                    }
+                    emit_account(&me, events);
                     let _ = events.send(Ev::Connected(format!(
                         "connected to {} as {} (key {})",
                         api.base(),
@@ -170,7 +167,7 @@ async fn handle(cmd: Cmd, events: &Sender<Ev>) {
             for entry in games {
                 run_one(&api, &cfg, &entry, &paths, events).await;
             }
-            report_storage(&api, events).await;
+            report_account(&api, events).await;
         }
 
         Cmd::SyncGame { cfg, entry, paths } => {
@@ -182,7 +179,7 @@ async fn handle(cmd: Cmd, events: &Sender<Ev>) {
                 }
             };
             run_one(&api, &cfg, &entry, &paths, events).await;
-            report_storage(&api, events).await;
+            report_account(&api, events).await;
         }
 
         Cmd::Resolve {
@@ -267,16 +264,24 @@ async fn handle(cmd: Cmd, events: &Sender<Ev>) {
     }
 }
 
-/// Tell the interface how much storage the account uses now, so the bar at
-/// the bottom follows what the last synchronisation changed.
-async fn report_storage(api: &ApiClient, events: &Sender<Ev>) {
+/// Tell the interface how the account looks now, so the bar at the bottom and
+/// the update notice follow what the last synchronisation changed.
+async fn report_account(api: &ApiClient, events: &Sender<Ev>) {
     if let Ok(me) = api.me().await {
-        if let Some(storage) = me.storage {
-            let _ = events.send(Ev::Storage {
-                used: storage.used,
-                quota: storage.quota,
-            });
-        }
+        emit_account(&me, events);
+    }
+}
+
+/// Send the storage and the server version of an account to the interface.
+fn emit_account(me: &crate::api::Me, events: &Sender<Ev>) {
+    if let Some(storage) = &me.storage {
+        let _ = events.send(Ev::Storage {
+            used: storage.used,
+            quota: storage.quota,
+        });
+    }
+    if let Some(server) = &me.server {
+        let _ = events.send(Ev::Server(server.clone()));
     }
 }
 

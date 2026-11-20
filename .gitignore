@@ -34,3 +34,4 @@ Thumbs.db
 
 # Release artefacts
 /dist/
+/latest.json

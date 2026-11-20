@@ -108,6 +108,22 @@ hit.
 in two games counts twice; and an account with a quota has to be watched. A
 quota of zero means no limit.
 
+### The update check is opt-in, and there is no auto-update
+
+**Decision:** the server can look for a newer release, when the configuration
+asks it, and tell the clients. It never updates itself. Updating is a command,
+`gamesave update`, run by the administrator after stopping the server, and the
+downloaded binary is checked against the sha256 published in the release.
+
+**Why:** a server that replaces its own binary is a way for a bad release, or a
+compromised repository, to reach every machine without anybody looking. A
+notification keeps the administrator informed; the command keeps the moment of
+the change in their hands.
+
+**Cost:** the check is an outbound HTTPS request to GitHub, so it is off by
+default and it needs the repository to be public. The release has to carry the
+description file.
+
 ---
 
 ## 2. The client

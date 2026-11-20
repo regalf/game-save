@@ -3,13 +3,17 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"syscall"
@@ -21,6 +25,7 @@ import (
 	"gamesave/internal/config"
 	"gamesave/internal/db"
 	"gamesave/internal/tlscert"
+	"gamesave/internal/updater"
 )
 
 // version is overridden at link time with -ldflags "-X main.version=...".
@@ -47,6 +52,8 @@ func run(args []string) error {
 		return cmdKey(args[1:])
 	case "gc":
 		return cmdGC(args[1:])
+	case "update":
+		return cmdUpdate(args[1:])
 	case "version", "--version", "-v":
 		fmt.Printf("gamesave %s\n", version)
 		return nil
@@ -73,6 +80,8 @@ Usage:
   gamesave key list --user <name>
   gamesave key revoke --user <name> --id <id>
   gamesave gc                          delete unreferenced blobs
+  gamesave update [--check] [--version v0.3.0]
+                                       download and install a newer server
   gamesave version                     print the version`)
 }
 
@@ -236,9 +245,28 @@ func cmdServe(args []string) error {
 		tlsConfig = settings
 	}
 
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	// The API reports the same version the command line prints.
+	api.Version = version
+
+	// The update check is opt-in: the server only looks, it never updates
+	// itself.
+	var checker *updater.Checker
+	if cfg.Update.Check {
+		interval := time.Duration(cfg.Update.IntervalHours) * time.Hour
+		checker = updater.NewChecker(cfg.Update.Repo, interval)
+		checker.Start(ctx)
+		log.Info("the update check is on", "repo", cfg.Update.Repo, "every", interval)
+	}
+
 	apiServer := api.New(cfg, database, blobs, log)
 	if tlsConfig != nil && len(tlsConfig.anchorPEM) > 0 {
 		apiServer = apiServer.WithCertificate(tlsConfig.anchorPEM, tlsConfig.anchorFP, tlsConfig.leafFP)
+	}
+	if checker != nil {
+		apiServer = apiServer.WithUpdater(checker)
 	}
 	handler := apiServer.Handler()
 	srv := &http.Server{
@@ -249,9 +277,6 @@ func cmdServe(args []string) error {
 		IdleTimeout:       120 * time.Second,
 		MaxHeaderBytes:    1 << 20,
 	}
-
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
 
 	errCh := make(chan error, 1)
 	go func() {
@@ -651,5 +676,123 @@ func cmdGC(args []string) error {
 		removed++
 	}
 	fmt.Printf("removed %d unreferenced blobs (%d bytes freed)\n", removed, freed)
+	return nil
+}
+
+// cmdUpdate implements the "gamesave update" command.
+//
+// The server never updates itself: the user stops it, runs this command, and
+// starts it again. The download is checked against the sha256 published in the
+// release before the running executable is replaced.
+func cmdUpdate(args []string) error {
+	flags, _, err := parseFlags(args)
+	if err != nil {
+		return err
+	}
+	cfg, err := config.Load(flags["config"])
+	if err != nil {
+		return err
+	}
+	ctx := context.Background()
+
+	release, err := resolveRelease(ctx, cfg.Update.Repo, flags["version"])
+	if err != nil {
+		return err
+	}
+
+	if flags["check"] != "" {
+		fmt.Printf("this server is %s, the latest is %s (%s)\n", version, release.Version, release.Tag)
+		if updater.IsNewer(release.Version, version) {
+			fmt.Println("an update is available")
+		} else {
+			fmt.Println("this server is up to date")
+		}
+		return nil
+	}
+
+	if !updater.IsNewer(release.Version, version) {
+		fmt.Printf("this server is already %s, the latest is %s\n", version, release.Version)
+		return nil
+	}
+
+	platform := updater.Platform(runtime.GOOS, runtime.GOARCH)
+	asset, ok := release.Assets[platform]
+	if !ok {
+		return fmt.Errorf("the release %s has no asset for %s", release.Tag, platform)
+	}
+
+	fmt.Printf("updating %s -> %s (%s)\n", version, release.Version, platform)
+	fmt.Println("the server has to be stopped before updating")
+	if err := installRelease(ctx, cfg.Update.Repo, release, asset); err != nil {
+		return err
+	}
+	fmt.Println("updated, start the server again")
+	return nil
+}
+
+// resolveRelease reads the description of the latest release, or of the one
+// asked for.
+func resolveRelease(ctx context.Context, repo, tag string) (*updater.Release, error) {
+	if tag != "" {
+		return updater.FetchTag(ctx, repo, tag)
+	}
+	return updater.Fetch(ctx, repo)
+}
+
+// installRelease downloads an asset, checks its digest and replaces the running
+// executable.
+func installRelease(ctx context.Context, repo string, release *updater.Release, asset updater.Asset) error {
+	url := fmt.Sprintf("https://github.com/%s/releases/download/%s/%s", repo, release.Tag, asset.Name)
+	fmt.Printf("  %s\n", url)
+
+	executable, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	executable, err = filepath.EvalSymlinks(executable)
+	if err != nil {
+		return err
+	}
+
+	temp, err := os.CreateTemp(filepath.Dir(executable), ".gamesave-update-*")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(temp.Name())
+	defer temp.Close()
+
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return err
+	}
+	request.Header.Set("User-Agent", "gamesave")
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		return fmt.Errorf("HTTP %d", response.StatusCode)
+	}
+
+	hasher := sha256.New()
+	if _, err := io.Copy(io.MultiWriter(temp, hasher), response.Body); err != nil {
+		return err
+	}
+	if err := temp.Close(); err != nil {
+		return err
+	}
+
+	sum := hex.EncodeToString(hasher.Sum(nil))
+	if !strings.EqualFold(sum, asset.SHA256) {
+		return fmt.Errorf("the download does not match the published sha256\n  expected: %s\n  actual:   %s", asset.SHA256, sum)
+	}
+	if err := os.Chmod(temp.Name(), 0o755); err != nil {
+		return err
+	}
+	if err := os.Rename(temp.Name(), executable); err != nil {
+		return fmt.Errorf("cannot replace %s: %w", executable, err)
+	}
+	fmt.Printf("  installed %s\n", executable)
 	return nil
 }
