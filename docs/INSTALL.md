@@ -9,6 +9,10 @@ curl -fsSL https://raw.githubusercontent.com/regalf/game-save/main/scripts/insta
 The script asks how the server should run, writes the configuration, installs a
 systemd service and prints the fingerprint the client has to pin.
 
+The answers are read from the terminal, also when the bootstrap is piped into
+`sh`. In a session without a terminal (a script, a CI job), pass `--yes` to use
+the defaults without being asked.
+
 **The repository has to be public.** The installer is read from the repository
 and the server binary from the release, both without authentication. For a
 private repository, make it public or point `GAMESAVE_REPO` at a public fork.

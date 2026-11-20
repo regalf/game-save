@@ -168,6 +168,21 @@ def die(message: str) -> None:
     raise SystemExit(1)
 
 
+def read_answer(text: str) -> str:
+    """Read a line from the user.
+
+    When the installer is piped into a shell (``curl | sh``) stdin is at EOF,
+    and ``input`` raises: say what to do instead of showing a traceback.
+    """
+    try:
+        return input(text)
+    except EOFError:
+        die(
+            "there is no terminal to answer the questions. Run install.py "
+            "directly, or pass --yes to use the defaults."
+        )
+
+
 def ensure_root() -> None:
     """The installer writes a service and a binary, so it needs root.
 
@@ -189,13 +204,13 @@ def run(cmd: list[str], optional: bool = False) -> None:
 
 
 def ask(prompt: str, default: str) -> str:
-    answer = input(f"{prompt} [{default}]: ").strip()
+    answer = read_answer(f"{prompt} [{default}]: ").strip()
     return answer or default
 
 
 def ask_yes_no(prompt: str, default: bool = True) -> bool:
     suffix = "Y/n" if default else "y/N"
-    answer = input(f"{prompt} [{suffix}]: ").strip().lower()
+    answer = read_answer(f"{prompt} [{suffix}]: ").strip().lower()
     if not answer:
         return default
     return answer in ("y", "yes", "s", "si")
@@ -207,7 +222,7 @@ def ask_method() -> str:
     print("  1) a native binary, started by systemd")
     print("  2) a Docker container, started by systemd")
     while True:
-        answer = input("Choose 1 or 2 [1]: ").strip() or "1"
+        answer = read_answer("Choose 1 or 2 [1]: ").strip() or "1"
         if answer in ("1", "2"):
             return "native" if answer == "1" else "docker"
         print("please answer 1 or 2")
@@ -293,7 +308,7 @@ def resolve_service_user(args: argparse.Namespace, method: str) -> str:
     print(f"  1) create a dedicated user (recommended, default: {USER})")
     print("  2) use an existing user")
     while True:
-        answer = input("Choose 1 or 2 [1]: ").strip() or "1"
+        answer = read_answer("Choose 1 or 2 [1]: ").strip() or "1"
         if answer == "1":
             return ask("Username", USER)
         if answer == "2":

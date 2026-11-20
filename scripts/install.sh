@@ -35,6 +35,17 @@ echo "    ${SCRIPT}"
 curl -fsSL "${SCRIPT}" -o "$TMP"
 
 echo "==> running the installer"
-python3 "$TMP" --repo "$REPO" "$@"
-status=$?
+status=0
+if [ -t 0 ]; then
+    # stdin is already a terminal: `sh install.sh`, or a direct run.
+    python3 "$TMP" --repo "$REPO" "$@" || status=$?
+else
+    # `curl | sh` leaves stdin on the pipe, which is at EOF: the installer
+    # would read no answer at all. Read the answers from the terminal.
+    if ! python3 -c 'import os; os.open("/dev/tty", os.O_RDWR)' 2>/dev/null; then
+        echo "==> no terminal to answer the questions; pass --yes to use the defaults" >&2
+        exit 1
+    fi
+    python3 "$TMP" --repo "$REPO" "$@" < /dev/tty || status=$?
+fi
 exit $status
