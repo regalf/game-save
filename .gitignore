@@ -10,6 +10,10 @@
 /desktop/target/
 **/*.rs.bk
 
+# Python
+__pycache__/
+*.py[cod]
+
 # Local configuration and secrets
 config.yaml
 config.local.yaml

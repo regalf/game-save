@@ -41,6 +41,18 @@ true. When both sides changed, you choose which one wins.
 
 ---
 
+## Install on Linux
+
+```bash
+curl -fsSL https://github.com/regalf/game-save/releases/latest/download/install.sh | sh
+```
+
+The installer chooses between a native binary and Docker, writes the
+configuration, installs a systemd service and prints the fingerprint to pin in
+the client. See [docs/INSTALL.md](docs/INSTALL.md).
+
+---
+
 ## Quick start
 
 ```bash

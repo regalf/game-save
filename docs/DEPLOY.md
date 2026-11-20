@@ -3,6 +3,14 @@
 The server is one binary and one data directory. That is the whole thing to
 install.
 
+On Linux, the installer does all of it:
+
+```bash
+curl -fsSL https://github.com/regalf/game-save/releases/latest/download/install.sh | sh
+```
+
+See [INSTALL.md](INSTALL.md).
+
 **Before reading on, read [../SECURITY.md](../SECURITY.md):** the program is
 made for a home network, it is not built to resist an adversary, and it must
 not be exposed to the internet. The last section of this document says how to
