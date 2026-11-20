@@ -1,6 +1,6 @@
 [package]
 name = "gamesave"
-version = "0.3.0"
+version = "0.3.1"
 edition = "2021"
 rust-version = "1.85"
 description = "Game Save companion app: keeps game saves in sync with a self hosted server"

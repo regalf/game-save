@@ -3,6 +3,31 @@
 Every release, with what changed and why. The body of a release on GitHub is the
 section of its tag, from `## vX.Y.Z` to the next one.
 
+## v0.3.1
+
+**Game Save 0.3.1** — a hotfix: the command line and the service agree on the
+database.
+
+### The fix
+
+`gamesave user add`, `gamesave key create` and every other command read
+`/etc/gamesave/config.yaml` when `--config` is not given, so they work on an
+installed server. Before, they fell back to `./data`: an administrator who
+created an account from the command line was writing to another database, and
+the server answered `401 invalid_api_key` to every key it issued, also from
+outside localhost.
+
+### Also
+
+- the installer prints the exact commands for the first account and its key,
+  with the `--config` they need;
+- `README.md`, `docs/DEPLOY.md` and `docs/INSTALL.md` show the `--config` and say
+  that another configuration means another database.
+
+### Licence
+
+GPLv3. See `LICENSE`.
+
 ## v0.3.0
 
 **Game Save 0.3.0** — the sync works on Windows, the server can be installed and
