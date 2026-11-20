@@ -1,25 +1,22 @@
 #!/bin/sh
 # Game Save installer bootstrap.
 #
-# It downloads the installer and runs it. The quickstart is:
+# The quickstart is:
 #
-#   curl -fsSL https://github.com/regalf/game-save/releases/latest/download/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/regalf/game-save/main/scripts/install.sh | sh
 #
 # This file is deliberately small: everything that matters is in install.py,
-# which travels with the same release. Keeping the two apart means the logic is
-# a real file in the repository, and not a heredoc inside a shell one-liner.
+# which is read from the same repository at the same ref. Neither file is
+# attached to a release, so an installer fix does not need a new release.
 #
-# The environment variable GAMESAVE_REPO overrides the repository, which is
-# handy for a fork.
-#
-# The repository has to be public: both this script and the server binary are
-# downloaded without authentication. For a private repository, make it public
-# or point GAMESAVE_REPO at a public fork.
+# GAMESAVE_REPO overrides the repository and GAMESAVE_INSTALL_REF the ref
+# (default: main). Both are handy for a fork, or to pin a tag.
 
 set -eu
 
 REPO="${GAMESAVE_REPO:-regalf/game-save}"
-BASE="https://github.com/${REPO}/releases/latest/download"
+REF="${GAMESAVE_INSTALL_REF:-main}"
+SCRIPT="https://raw.githubusercontent.com/${REPO}/${REF}/scripts/install.py"
 
 if ! command -v curl >/dev/null 2>&1; then
     echo "curl is required" >&2
@@ -34,9 +31,10 @@ TMP="$(mktemp "${TMPDIR:-/tmp}/gamesave-install.XXXXXX")"
 trap 'rm -f "$TMP"' EXIT INT TERM
 
 echo "==> downloading the Game Save installer"
-curl -fsSL "${BASE}/install.py" -o "$TMP"
+echo "    ${SCRIPT}"
+curl -fsSL "${SCRIPT}" -o "$TMP"
 
 echo "==> running the installer"
-python3 "$TMP" "$@"
+python3 "$TMP" --repo "$REPO" "$@"
 status=$?
 exit $status

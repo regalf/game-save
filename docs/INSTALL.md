@@ -3,15 +3,19 @@
 The fastest way on Linux:
 
 ```bash
-curl -fsSL https://github.com/regalf/game-save/releases/latest/download/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/regalf/game-save/main/scripts/install.sh | sh
 ```
 
 The script asks how the server should run, writes the configuration, installs a
 systemd service and prints the fingerprint the client has to pin.
 
-**The repository has to be public.** The installer and the server binary are
-downloaded without authentication. For a private repository, make it public or
-point `GAMESAVE_REPO` at a public fork.
+**The repository has to be public.** The installer is read from the repository
+and the server binary from the release, both without authentication. For a
+private repository, make it public or point `GAMESAVE_REPO` at a public fork.
+
+The bootstrap reads `install.py` from the same repository and ref, so the
+installer is not attached to a release: a fix to it is a push to `main`, not a
+new release. Pin a tag with `GAMESAVE_INSTALL_REF=v0.3.0` if you prefer.
 
 ---
 
@@ -26,8 +30,9 @@ point `GAMESAVE_REPO` at a public fork.
 5. waits for the server and prints the fingerprint of its certificate
    authority.
 
-The release has to carry `install.sh` and `install.py` as assets, or the
-one-liner has nothing to download.
+The installer resolves the latest release itself and downloads the binary for
+the architecture it runs on (`amd64` or `arm64`), so the release only has to
+carry the binaries.
 
 ---
 
@@ -56,7 +61,7 @@ to never be asked.
 ## Uninstall
 
 ```bash
-curl -fsSL https://github.com/regalf/game-save/releases/latest/download/install.py -o install.py
+curl -fsSL https://raw.githubusercontent.com/regalf/game-save/main/scripts/install.py -o install.py
 sudo python3 install.py --uninstall
 ```
 
@@ -69,7 +74,7 @@ The bootstrap only downloads `install.py` and runs it, so the two steps can be
 done by hand:
 
 ```bash
-curl -fsSL https://github.com/regalf/game-save/releases/latest/download/install.py -o install.py
+curl -fsSL https://raw.githubusercontent.com/regalf/game-save/main/scripts/install.py -o install.py
 sudo python3 install.py
 ```
 
@@ -91,8 +96,9 @@ executable; see [DEPLOY.md](DEPLOY.md).
 
 ## Making a release
 
-The installer and the client download from the release, so the release has to
-carry these assets:
+The installer and the client download the binaries from the release, so the
+release has to carry them. The scripts are **not** in the release: they are read
+from the repository.
 
 | File | What it is |
 |---|---|
@@ -101,8 +107,6 @@ carry these assets:
 | `gamesave-server-windows-amd64.exe` | the server, Windows |
 | `gamesave-client-linux-amd64` | the companion app, Linux |
 | `gamesave-client-windows-amd64.exe` | the companion app, Windows |
-| `install.sh` | the installer bootstrap |
-| `install.py` | the installer |
 
 ```bash
 git tag -a v0.3.0 -m "Game Save 0.3.0"
@@ -112,10 +116,8 @@ gh release create v0.3.0 --title "Game Save 0.3.0" --notes-file release-notes.md
   dist/gamesave-server-linux-arm64 \
   dist/gamesave-server-windows-amd64.exe \
   dist/gamesave-client-linux-amd64 \
-  dist/gamesave-client-windows-amd64.exe \
-  scripts/install.sh \
-  scripts/install.py
+  dist/gamesave-client-windows-amd64.exe
 ```
 
-Without `install.sh` and `install.py` in the release, the one-liner has nothing
-to download. The repository has to be public.
+The repository has to be public. A fix to the installer is a push to `main`,
+not a release.

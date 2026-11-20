@@ -5,9 +5,14 @@ The script is interactive: it asks how the server should run (a native binary
 or Docker), writes the configuration, installs a systemd service and starts
 it, then prints the fingerprint the client has to pin.
 
-It is meant to be downloaded and run by ``install.sh``:
+It is read from the repository and run by ``install.sh``, which lives at the
+same ref:
 
-    curl -fsSL https://github.com/regalf/game-save/releases/latest/download/install.sh | sh
+    curl -fsSL https://raw.githubusercontent.com/regalf/game-save/main/scripts/install.sh | sh
+
+The installer resolves the latest release itself and downloads the server
+binary for the architecture it runs on, so nothing has to be attached to the
+release except the binaries.
 
 Everything uses the standard library, so there is nothing to pip install.
 Windows is not supported yet.

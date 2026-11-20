@@ -6,7 +6,7 @@ install.
 On Linux, the installer does all of it:
 
 ```bash
-curl -fsSL https://github.com/regalf/game-save/releases/latest/download/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/regalf/game-save/main/scripts/install.sh | sh
 ```
 
 See [INSTALL.md](INSTALL.md).
