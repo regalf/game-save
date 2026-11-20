@@ -171,9 +171,32 @@ jobs:
             dist/clients/gamesave-client-linux-amd64 \
             dist/clients/gamesave-client-windows-amd64.exe
 
+      - name: Release notes
+        id: notes
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          section=$(awk -v tag="v$VERSION" '
+            $0 ~ "^## " tag "([[:space:]]|$)" { found = 1 }
+            found && /^## / && !header { print; header = 1; next }
+            found && /^## / { exit }
+            found { print }
+          ' CHANGELOG.md)
+          if [ -z "$section" ]; then
+            echo "CHANGELOG.md has no section for v$VERSION" >&2
+            exit 1
+          fi
+          {
+            echo 'body<<NOTES'
+            printf '%s\n' "$section"
+            echo 'NOTES'
+          } >> "$GITHUB_OUTPUT"
+
       - name: Create the release
         uses: softprops/action-gh-release@v2
         with:
+          name: Game Save ${{ steps.version.outputs.version }}
+          body: ${{ steps.notes.outputs.body }}
           files: |
             dist/gamesave-server-linux-amd64
             dist/gamesave-server-linux-arm64
@@ -181,4 +204,3 @@ jobs:
             dist/clients/gamesave-client-linux-amd64
             dist/clients/gamesave-client-windows-amd64.exe
             latest.json
-          generate_release_notes: true
