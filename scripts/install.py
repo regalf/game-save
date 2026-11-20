@@ -55,11 +55,14 @@ DEFAULT_LISTEN = ":8443"
 class Config:
     """What the installer was told, and what it worked out."""
 
-    def __init__(self, listen: str, san: str, data_dir: str, port: int) -> None:
+    def __init__(
+        self, listen: str, san: str, data_dir: str, port: int, service_user: str
+    ) -> None:
         self.listen = listen
         self.san = san
         self.data_dir = data_dir
         self.port = port
+        self.service_user = service_user
 
 
 def main() -> int:
@@ -74,7 +77,7 @@ def main() -> int:
 
     method = args.method or ask_method()
     tag = args.version or latest_tag(args.repo)
-    cfg = collect_config(args)
+    cfg = collect_config(args, method)
 
     if args.dry_run:
         print()
@@ -83,6 +86,8 @@ def main() -> int:
         print(f"  listen:     {cfg.listen}")
         print(f"  san:        {cfg.san}")
         print(f"  data dir:   {cfg.data_dir}")
+        if method == "native":
+            print(f"  user:       {cfg.service_user}")
         print()
         print("dry run, nothing was done")
         return 0
@@ -120,6 +125,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--data-dir",
         help="where the saves live (default: /var/lib/gamesave)",
+    )
+    parser.add_argument(
+        "--user",
+        help="the user that runs the server, native only (default: asked)",
     )
     parser.add_argument(
         "--yes",
@@ -241,25 +250,69 @@ def parse_port(listen: str) -> int:
     return int(match.group(1)) if match else 8443
 
 
-def collect_config(args: argparse.Namespace) -> Config:
+def user_exists(name: str) -> bool:
+    import pwd
+
+    try:
+        pwd.getpwnam(name)
+        return True
+    except KeyError:
+        return False
+
+
+def resolve_service_user(args: argparse.Namespace, method: str) -> str:
+    """The user the service runs as.
+
+    Only the native install has one: the Docker container runs as the uid its
+    image says, and systemd runs the compose command as root.
+    """
+    if method == "docker":
+        return USER
+    if args.user:
+        return args.user
+    if args.yes:
+        return USER
+
+    print()
+    print("Which user should run the server?")
+    print(f"  1) create a dedicated user (recommended, default: {USER})")
+    print("  2) use an existing user")
+    while True:
+        answer = input("Choose 1 or 2 [1]: ").strip() or "1"
+        if answer == "1":
+            return ask("Username", USER)
+        if answer == "2":
+            name = ask("Existing username", "")
+            if not name:
+                print("please type a username")
+            elif not user_exists(name):
+                print(f"there is no user named {name} on this machine")
+            else:
+                return name
+            continue
+        print("please answer 1 or 2")
+
+
+def collect_config(args: argparse.Namespace, method: str) -> Config:
     listen = args.listen or DEFAULT_LISTEN
     san = args.san or default_san()
     data_dir = args.data_dir or DEFAULT_DATA_DIR
+    service_user = resolve_service_user(args, method)
 
     # With --yes, or when everything was given on the command line, there is
     # nothing to ask.
     if args.yes or args.listen or args.san or args.data_dir:
-        return Config(listen, san, data_dir, parse_port(listen))
+        return Config(listen, san, data_dir, parse_port(listen), service_user)
 
     print()
     print("The default configuration is fine for a home server.")
     if ask_yes_no("Use the default configuration?", True):
-        return Config(listen, san, data_dir, parse_port(listen))
+        return Config(listen, san, data_dir, parse_port(listen), service_user)
 
     listen = ask("Listen address", listen)
     san = ask("Subject alternative names (comma separated)", san)
     data_dir = ask("Data directory", data_dir)
-    return Config(listen, san, data_dir, parse_port(listen))
+    return Config(listen, san, data_dir, parse_port(listen), service_user)
 
 
 def config_text(cfg: Config) -> str:
@@ -326,15 +379,15 @@ def install_native(tag: str, cfg: Config, args: argparse.Namespace) -> None:
     else:
         write_config(CONFIG_PATH, cfg)
 
-    create_system_user(cfg.data_dir)
-    prepare_data_dir(cfg.data_dir)
-    write_unit(native_unit(cfg.data_dir))
+    prepare_service_user(cfg.service_user, cfg.data_dir)
+    prepare_data_dir(cfg.data_dir, cfg.service_user)
+    write_unit(native_unit(cfg.service_user, cfg.data_dir))
     systemctl("daemon-reload")
     systemctl("enable", "--now", SERVICE)
     wait_for_server(cfg)
 
 
-def native_unit(data_dir: str) -> str:
+def native_unit(user: str, data_dir: str) -> str:
     return f"""[Unit]
 Description=Game Save server
 After=network-online.target
@@ -342,8 +395,8 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User={USER}
-Group={USER}
+User={user}
+Group={user}
 ExecStart={BIN_PATH} serve --config {CONFIG_PATH}
 Restart=on-failure
 RestartSec=5
@@ -358,16 +411,14 @@ WantedBy=multi-user.target
 """
 
 
-def create_system_user(data_dir: str) -> None:
-    import pwd
-
-    try:
-        pwd.getpwnam(USER)
+def prepare_service_user(name: str, data_dir: str) -> None:
+    """Make sure the user that runs the service exists, creating it if not."""
+    if user_exists(name):
+        if name == "root":
+            print("    warning: running the server as root is not recommended")
         return
-    except KeyError:
-        pass
     if shutil.which("useradd") is None:
-        die("useradd is missing and the gamesave user does not exist")
+        die(f"useradd is missing and the user {name} does not exist")
     run(
         [
             "useradd",
@@ -376,19 +427,19 @@ def create_system_user(data_dir: str) -> None:
             data_dir,
             "--shell",
             "/usr/sbin/nologin",
-            USER,
+            name,
         ]
     )
 
 
-def prepare_data_dir(data_dir: str) -> None:
-    """Create the data directory and give it to the gamesave user."""
+def prepare_data_dir(data_dir: str, user: str) -> None:
+    """Create the data directory and give it to the service user."""
     import pwd
 
     path = Path(data_dir)
     path.mkdir(parents=True, exist_ok=True)
     try:
-        info = pwd.getpwnam(USER)
+        info = pwd.getpwnam(user)
     except KeyError:
         return
     os.chown(path, info.pw_uid, info.pw_gid)

@@ -43,8 +43,22 @@ carry the binaries.
 | native | `/usr/local/bin/gamesave`, `/etc/gamesave/config.yaml`, `/var/lib/gamesave` | the executable |
 | docker | `/opt/gamesave/server`, `/opt/gamesave/docker-compose.yml`, `/var/lib/gamesave` | `docker compose` |
 
-The native install creates a system user named `gamesave`. The Docker install
-needs the `docker` command and the compose plugin.
+The Docker install needs the `docker` command and the compose plugin.
+
+## The service user
+
+The native install does not run as root. The installer asks:
+
+- **create a dedicated user** (recommended): a system user with no login, named
+  `gamesave` unless you choose another name;
+- **use an existing user**: type a user that already exists on the machine.
+
+This matters on a minimal container, a Proxmox LXC with only `root` for
+example: running the server as `root` works, but it is not the right thing. Use
+`--user <name>` to choose on the command line (it is created when missing).
+
+The Docker install has no such choice: the container runs as the uid written in
+`server/Dockerfile`, and systemd runs `docker compose` as root.
 
 ## Configuration
 
