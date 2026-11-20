@@ -72,6 +72,9 @@ Answer "no" to "Use the default configuration?" to set:
 Or pass `--listen`, `--san` and `--data-dir` on the command line, and `--yes`
 to never be asked.
 
+The installer also asks whether to look for newer releases (off by default);
+pass `--update-check` to enable it without being asked.
+
 ## Uninstall
 
 ```bash
@@ -121,27 +124,27 @@ from the repository.
 | `gamesave-server-windows-amd64.exe` | the server, Windows |
 | `gamesave-client-linux-amd64` | the companion app, Linux |
 | `gamesave-client-windows-amd64.exe` | the companion app, Windows |
-| `latest.json` | the version and the sha256 of the server binaries, for the updater |
+| `latest.json` | the version and the sha256 of every binary, for the updater |
+
+Push a `v*` tag: the CI workflow builds the server and the client, writes
+`latest.json` with the version and the sha256 of every binary, and creates the
+release with all the files attached.
 
 ```bash
 git tag -a v0.3.0 -m "Game Save 0.3.0"
 git push origin v0.3.0
-gh release create v0.3.0 --title "Game Save 0.3.0" --notes-file release-notes.md \
-  dist/gamesave-server-linux-amd64 \
-  dist/gamesave-server-linux-arm64 \
-  dist/gamesave-server-windows-amd64.exe \
-  dist/gamesave-client-linux-amd64 \
-  dist/gamesave-client-windows-amd64.exe \
-  latest.json
 ```
 
-`scripts/latest-json.sh` writes `latest.json` from the binaries:
+`scripts/latest-json.sh` is what the workflow runs; use it by hand to see what
+the release description will be:
 
 ```bash
 scripts/latest-json.sh 0.3.0 \
   dist/gamesave-server-linux-amd64 \
   dist/gamesave-server-linux-arm64 \
-  dist/gamesave-server-windows-amd64.exe
+  dist/gamesave-server-windows-amd64.exe \
+  dist/gamesave-client-linux-amd64 \
+  dist/gamesave-client-windows-amd64.exe
 ```
 
 The repository has to be public. A fix to the installer is a push to `main`,

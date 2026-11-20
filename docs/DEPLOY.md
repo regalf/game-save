@@ -117,7 +117,7 @@ update:
 ```
 
 It reads `latest.json` from the latest release, which holds the version and the
-sha256 of every server binary. When the latest is newer, the clients are told
+sha256 of every binary. When the latest is newer, the clients are told
 and the app shows a notification.
 
 The server **never updates itself**. To update:

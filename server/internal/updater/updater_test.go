@@ -47,6 +47,10 @@ func TestFetch(t *testing.T) {
 			"tag": "v0.3.0",
 			"assets": {
 				"linux-amd64": {"name": "gamesave-server-linux-amd64", "sha256": "abc"}
+			},
+			"clients": {
+				"linux-amd64": {"name": "gamesave-client-linux-amd64", "sha256": "def"},
+				"windows-amd64": {"name": "gamesave-client-windows-amd64.exe", "sha256": "ghi"}
 			}
 		}`)
 	}))
@@ -68,6 +72,13 @@ func TestFetch(t *testing.T) {
 	}
 	if asset.Name != "gamesave-server-linux-amd64" || asset.SHA256 != "abc" {
 		t.Fatalf("asset = %+v", asset)
+	}
+	client, ok := release.Clients["windows-amd64"]
+	if !ok {
+		t.Fatal("the windows-amd64 client is missing")
+	}
+	if client.Name != "gamesave-client-windows-amd64.exe" || client.SHA256 != "ghi" {
+		t.Fatalf("client = %+v", client)
 	}
 }
 

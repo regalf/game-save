@@ -33,8 +33,12 @@ type Release struct {
 	// Tag is the git tag, for example "v0.3.0".
 	Tag string `json:"tag"`
 	// Assets maps a platform key ("linux-amd64", "windows-amd64", ...) to its
-	// file.
+	// server binary.
 	Assets map[string]Asset `json:"assets"`
+	// Clients maps a platform key to the companion app binary. It is optional:
+	// the server does not update the client, the file is there for the release
+	// page and for whoever wants to script the download.
+	Clients map[string]Asset `json:"clients,omitempty"`
 }
 
 // Fetch reads the description of the latest release.

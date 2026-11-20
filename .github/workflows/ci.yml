@@ -3,6 +3,7 @@ name: CI
 on:
   push:
     branches: [main]
+    tags: ['v*']
   pull_request:
   workflow_dispatch:
 
@@ -81,11 +82,19 @@ jobs:
         working-directory: desktop
         run: cargo build --release
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload the Linux client
         if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@v4
         with:
           name: gamesave-client-linux
           path: desktop/target/release/gamesave
+
+      - name: Upload the Windows client
+        if: matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: gamesave-client-windows
+          path: desktop/target/release/gamesave.exe
 
   scripts:
     name: scripts
@@ -95,6 +104,81 @@ jobs:
 
       - name: Shell syntax
         run: sh -n scripts/install.sh
+        shell: bash
+
+      - name: Latest.json syntax
+        run: sh -n scripts/latest-json.sh
+        shell: bash
 
       - name: Python syntax
         run: python3 -m py_compile scripts/install.py
+
+  release:
+    name: release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [client]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Version
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27'
+          cache-dependency-path: server/go.sum
+
+      - name: Download the clients
+        uses: actions/download-artifact@v4
+        with:
+          pattern: gamesave-client-*
+          path: dist/clients
+          merge-multiple: true
+
+      - name: Name the clients
+        run: |
+          mv dist/clients/gamesave dist/clients/gamesave-client-linux-amd64
+          mv dist/clients/gamesave.exe dist/clients/gamesave-client-windows-amd64.exe
+
+      - name: Build the server binaries
+        working-directory: server
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          mkdir -p ../dist
+          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -trimpath \
+            -ldflags "-s -w -X main.version=$VERSION" \
+            -o ../dist/gamesave-server-linux-amd64 ./cmd/gamesave
+          GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -trimpath \
+            -ldflags "-s -w -X main.version=$VERSION" \
+            -o ../dist/gamesave-server-linux-arm64 ./cmd/gamesave
+          GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath \
+            -ldflags "-s -w -X main.version=$VERSION" \
+            -o ../dist/gamesave-server-windows-amd64.exe ./cmd/gamesave
+
+      - name: Write latest.json
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          scripts/latest-json.sh "$VERSION" \
+            dist/gamesave-server-linux-amd64 \
+            dist/gamesave-server-linux-arm64 \
+            dist/gamesave-server-windows-amd64.exe \
+            dist/clients/gamesave-client-linux-amd64 \
+            dist/clients/gamesave-client-windows-amd64.exe
+
+      - name: Create the release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/gamesave-server-linux-amd64
+            dist/gamesave-server-linux-arm64
+            dist/gamesave-server-windows-amd64.exe
+            dist/clients/gamesave-client-linux-amd64
+            dist/clients/gamesave-client-windows-amd64.exe
+            latest.json
+          generate_release_notes: true

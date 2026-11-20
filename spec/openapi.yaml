@@ -2,7 +2,7 @@ openapi: 3.1.0
 
 info:
   title: Game Save
-  version: "0.1.0"
+  version: "0.3.0"
   description: |
     The API of a Game Save server.
 
