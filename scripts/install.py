@@ -56,13 +56,22 @@ class Config:
     """What the installer was told, and what it worked out."""
 
     def __init__(
-        self, listen: str, san: str, data_dir: str, port: int, service_user: str
+        self,
+        listen: str,
+        san: str,
+        data_dir: str,
+        port: int,
+        service_user: str,
+        repo: str,
+        update_check: bool,
     ) -> None:
         self.listen = listen
         self.san = san
         self.data_dir = data_dir
         self.port = port
         self.service_user = service_user
+        self.repo = repo
+        self.update_check = update_check
 
 
 def main() -> int:
@@ -88,6 +97,7 @@ def main() -> int:
         print(f"  data dir:   {cfg.data_dir}")
         if method == "native":
             print(f"  user:       {cfg.service_user}")
+        print(f"  updates:    {cfg.update_check}")
         print()
         print("dry run, nothing was done")
         return 0
@@ -129,6 +139,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--user",
         help="the user that runs the server, native only (default: asked)",
+    )
+    parser.add_argument(
+        "--update-check",
+        action="store_true",
+        help="look for newer releases once in a while (default: asked)",
     )
     parser.add_argument(
         "--yes",
@@ -298,21 +313,34 @@ def collect_config(args: argparse.Namespace, method: str) -> Config:
     san = args.san or default_san()
     data_dir = args.data_dir or DEFAULT_DATA_DIR
     service_user = resolve_service_user(args, method)
+    update_check = args.update_check
 
-    # With --yes, or when everything was given on the command line, there is
-    # nothing to ask.
-    if args.yes or args.listen or args.san or args.data_dir:
-        return Config(listen, san, data_dir, parse_port(listen), service_user)
+    if args.yes:
+        return Config(
+            listen, san, data_dir, parse_port(listen), service_user, args.repo, update_check
+        )
 
     print()
     print("The default configuration is fine for a home server.")
-    if ask_yes_no("Use the default configuration?", True):
-        return Config(listen, san, data_dir, parse_port(listen), service_user)
+    if not (args.listen or args.san or args.data_dir):
+        if ask_yes_no("Use the default configuration?", True):
+            pass
+        else:
+            listen = ask("Listen address", listen)
+            san = ask("Subject alternative names (comma separated)", san)
+            data_dir = ask("Data directory", data_dir)
 
-    listen = ask("Listen address", listen)
-    san = ask("Subject alternative names (comma separated)", san)
-    data_dir = ask("Data directory", data_dir)
-    return Config(listen, san, data_dir, parse_port(listen), service_user)
+    # Looking outside, on GitHub, is a choice of its own. It is off by default,
+    # like the server does.
+    if not update_check:
+        update_check = ask_yes_no(
+            "look for newer releases once in a while? (the repository has to be public)",
+            False,
+        )
+
+    return Config(
+        listen, san, data_dir, parse_port(listen), service_user, args.repo, update_check
+    )
 
 
 def config_text(cfg: Config) -> str:
@@ -332,6 +360,10 @@ auth:
   require_api_key: true
 limits:
   max_file_size: 1073741824
+update:
+  check: {"true" if cfg.update_check else "false"}
+  interval_hours: 24
+  repo: "{cfg.repo}"
 """
 
 
@@ -519,6 +551,8 @@ def write_compose(cfg: Config, tag: str) -> None:
       GAMESAVE_DATA_DIR: "/data"
       GAMESAVE_TLS_MODE: "selfsigned"
       GAMESAVE_SANS: "{cfg.san}"
+      GAMESAVE_UPDATE_CHECK: "{str(cfg.update_check).lower()}"
+      GAMESAVE_UPDATE_REPO: "{cfg.repo}"
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "--no-check-certificate", "https://127.0.0.1:8443/healthz"]
       interval: 30s
@@ -601,6 +635,7 @@ def report(cfg: Config) -> None:
     else:
         path = Path(cfg.data_dir) / "certs" / "fingerprint.txt"
         print(f"  The fingerprint is in {path}")
+    print(f"  Update check: {cfg.update_check}")
     print()
     print("  systemctl status gamesave")
     print()
