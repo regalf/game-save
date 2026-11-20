@@ -86,3 +86,36 @@ user.
 
 The installer is Linux only for now. On Windows the server runs as a plain
 executable; see [DEPLOY.md](DEPLOY.md).
+
+---
+
+## Making a release
+
+The installer and the client download from the release, so the release has to
+carry these assets:
+
+| File | What it is |
+|---|---|
+| `gamesave-server-linux-amd64` | the server, Linux x86-64 |
+| `gamesave-server-linux-arm64` | the server, Linux ARM64 |
+| `gamesave-server-windows-amd64.exe` | the server, Windows |
+| `gamesave-client-linux-amd64` | the companion app, Linux |
+| `gamesave-client-windows-amd64.exe` | the companion app, Windows |
+| `install.sh` | the installer bootstrap |
+| `install.py` | the installer |
+
+```bash
+git tag -a v0.3.0 -m "Game Save 0.3.0"
+git push origin v0.3.0
+gh release create v0.3.0 --title "Game Save 0.3.0" --notes-file release-notes.md \
+  dist/gamesave-server-linux-amd64 \
+  dist/gamesave-server-linux-arm64 \
+  dist/gamesave-server-windows-amd64.exe \
+  dist/gamesave-client-linux-amd64 \
+  dist/gamesave-client-windows-amd64.exe \
+  scripts/install.sh \
+  scripts/install.py
+```
+
+Without `install.sh` and `install.py` in the release, the one-liner has nothing
+to download. The repository has to be public.
