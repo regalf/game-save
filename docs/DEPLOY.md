@@ -41,8 +41,8 @@ GOOS=linux GOARCH=arm64 go build -o gamesave-linux-arm64 ./cmd/gamesave
 ## First run
 
 ```bash
-./gamesave user add alice
-./gamesave key create --user alice --label laptop
+./gamesave user add alice --config /etc/gamesave/config.yaml
+./gamesave key create --user alice --label laptop --config /etc/gamesave/config.yaml
 ./gamesave serve --config /etc/gamesave/config.yaml
 ```
 
@@ -88,10 +88,10 @@ sum of the sizes of the current files of the account; the same blob referenced
 by two games counts twice, because that is what the manifests show.
 
 ```bash
-gamesave user quota alice             # show the quota
-gamesave user quota alice 10GB        # 10 GiB
-gamesave user quota alice 0           # no limit
-gamesave user add bob --quota 2GB     # at creation
+gamesave user quota alice --config /etc/gamesave/config.yaml        # show the quota
+gamesave user quota alice 10GB --config /etc/gamesave/config.yaml   # 10 GiB
+gamesave user quota alice 0 --config /etc/gamesave/config.yaml      # no limit
+gamesave user add bob --quota 2GB --config /etc/gamesave/config.yaml # at creation
 ```
 
 An upload that would pass the quota is refused with `413` and the code
@@ -276,15 +276,20 @@ The checklist is in [../SECURITY.md](../SECURITY.md), at the end. Read it.
 ## Accounts and keys
 
 ```bash
-gamesave user add bob
-gamesave user list
+gamesave user add bob --config /etc/gamesave/config.yaml
+gamesave user list --config /etc/gamesave/config.yaml
 gamesave user disable bob          # the keys stop working at once
 gamesave user enable bob
 
-gamesave key create --user alice --label laptop
-gamesave key list --user alice
-gamesave key revoke --user alice --id 3
+gamesave key create --user alice --label laptop --config /etc/gamesave/config.yaml
+gamesave key list --user alice --config /etc/gamesave/config.yaml
+gamesave key revoke --user alice --id 3 --config /etc/gamesave/config.yaml
 ```
+
+An installed server reads `/etc/gamesave/config.yaml` when `--config` is not
+given, so the commands above work on an installed machine. Passing another
+`--config` (or setting `GAMESAVE_DATA_DIR`) points them at a different database,
+and a key issued for one database is refused by the other with `401`.
 
 One key per machine is the sensible habit: a key can be revoked without
 disturbing the other machines.

@@ -40,6 +40,23 @@ carry the binaries.
 
 ---
 
+## The first account
+
+The server starts with no account. Create one and its key, pointing the command
+at the configuration the service uses:
+
+```bash
+sudo gamesave user add alice --config /etc/gamesave/config.yaml
+sudo gamesave key create --user alice --label laptop --config /etc/gamesave/config.yaml
+```
+
+An installed server reads `/etc/gamesave/config.yaml` when `--config` is not
+given. Passing another file (or setting `GAMESAVE_DATA_DIR`) points the command
+at a different database, and a key issued for one database is refused by the
+other with `401`.
+
+---
+
 ## The two ways
 
 | Way | Where it lives | The service runs |

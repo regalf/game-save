@@ -108,7 +108,7 @@ def main() -> int:
     else:
         install_native(tag, cfg, args)
 
-    report(cfg)
+    report(cfg, method)
     return 0
 
 
@@ -639,7 +639,7 @@ def read_fingerprint(data_dir: str) -> str | None:
     return None
 
 
-def report(cfg: Config) -> None:
+def report(cfg: Config, method: str) -> None:
     fingerprint = read_fingerprint(cfg.data_dir)
     print()
     print("  Game Save is up.")
@@ -651,6 +651,19 @@ def report(cfg: Config) -> None:
         path = Path(cfg.data_dir) / "certs" / "fingerprint.txt"
         print(f"  The fingerprint is in {path}")
     print(f"  Update check: {cfg.update_check}")
+    print()
+    print("  Create the first account and its key:")
+    if method == "docker":
+        print("    cd /opt/gamesave")
+        print("    sudo docker compose exec gamesave gamesave user add alice")
+        print("    sudo docker compose exec gamesave gamesave key create --user alice --label laptop")
+    else:
+        print("    sudo gamesave user add alice --config /etc/gamesave/config.yaml")
+        print("    sudo gamesave key create --user alice --label laptop --config /etc/gamesave/config.yaml")
+    print()
+    print("  The --config is what makes the account visible to the service: without")
+    print("  it the command reads ./data, a different database, and the keys it")
+    print("  issues are refused with 401.")
     print()
     print("  systemctl status gamesave")
     print()

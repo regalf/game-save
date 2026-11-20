@@ -58,8 +58,8 @@ the client. See [docs/INSTALL.md](docs/INSTALL.md).
 ```bash
 cd server
 go build -o gamesave ./cmd/gamesave
-./gamesave user add alice
-./gamesave key create --user alice --label laptop   # shown once
+./gamesave user add alice --config config.yaml
+./gamesave key create --user alice --label laptop --config config.yaml   # shown once
 ./gamesave serve --config config.yaml
 ```
 

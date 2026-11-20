@@ -5,11 +5,18 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 
 	"gopkg.in/yaml.v3"
 )
+
+// SystemConfigPath is the configuration the Linux installer writes. A command
+// that does not name a file reads it, so that `gamesave user add` and
+// `gamesave serve` agree on the same database: without it, the command would
+// use ./data and the keys it issues would not exist for the service.
+const SystemConfigPath = "/etc/gamesave/config.yaml"
 
 // Config is the root configuration document.
 type Config struct {
@@ -92,9 +99,16 @@ func Default() Config {
 }
 
 // Load reads the configuration from path, applying defaults, then overlays
-// environment variables. An empty path means "defaults plus environment".
+// environment variables. An empty path means the configuration of an installed
+// server when there is one, and otherwise the defaults plus the environment.
 func Load(path string) (Config, error) {
 	cfg := Default()
+
+	if path == "" && runtime.GOOS != "windows" {
+		if _, err := os.Stat(SystemConfigPath); err == nil {
+			path = SystemConfigPath
+		}
+	}
 
 	if path != "" {
 		raw, err := os.ReadFile(path)
